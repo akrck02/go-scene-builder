@@ -14,14 +14,16 @@ import (
 // line raises each line of a feature as a wall of "thickness" and "height" metres. By default it
 // follows the ground in pieces of at most "segment" metres, each sunk "sink" metres below the
 // lowest relief under it; with "follow: level" it is one level prism whose top is "height" metres
-// over its highest end (a bridge deck from bank to bank). Where lines of the features selected by
+// over its highest end (a bridge deck from bank to bank); over a river dug into the relief its
+// underside stays "clearance" metres over the water, it reaches out to the banks and stands on
+// abutments where it does not touch the ground. Where lines of the features selected by
 // "openings.where" cross it, a gap of "openings.width" metres is left, and the recipe gate_towers
 // (in "decorate") raises a tower at each side of the gap:
 //
 //	openings: {where: {kind: street, class: road}, width: 6}
 //	decorate: [{recipe: gate_towers, size: 5, height: 12}]
 func (builder *featureBuilder) line(feature *mapdata.Feature, resolved, shape style.Style) error {
-	values, err := numbers(shape, feature.Properties, map[string]float64{"height": 3, "thickness": 1, "segment": 10, "sink": 1.5})
+	values, err := numbers(shape, feature.Properties, map[string]float64{"height": 3, "thickness": 1, "segment": 10, "sink": 1.5, "clearance": 1.5})
 	if err != nil {
 		return err
 	}
@@ -79,11 +81,74 @@ func (builder *featureBuilder) levelLine(line []mapdata.Point, values map[string
 		return
 	}
 	top := math.Max(builder.height(line[0][0], line[0][1]), builder.height(line[len(line)-1][0], line[len(line)-1][1])) + values["height"]
-	for index := 1; index < len(line); index++ {
-		if outline := sideways(line[index-1], line[index], values["thickness"]/2000); outline != nil {
-			builder.prism(mapdata.Polygon{Exterior: outline}, top-values["height"]-values["sink"], top, color, color, material)
+	bottom := top - values["height"] - values["sink"]
+	if water, crosses := builder.waterAlong(line); crosses {
+		top = math.Max(top, water+values["clearance"]+values["height"])
+		bottom = math.Max(top-values["height"]-values["sink"], water+values["clearance"])
+		line = builder.reachTheBanks(line, water+0.2)
+		for _, end := range []mapdata.Point{line[0], line[len(line)-1]} {
+			if ground := builder.height(end[0], end[1]); ground < bottom {
+				builder.prism(mapdata.Polygon{Exterior: squareAround(end, values["thickness"]/2000)}, ground-values["sink"], top, color, color, material)
+			}
 		}
 	}
+	for index := 1; index < len(line); index++ {
+		if outline := sideways(line[index-1], line[index], values["thickness"]/2000); outline != nil {
+			builder.prism(mapdata.Polygon{Exterior: outline}, bottom, top, color, color, material)
+		}
+	}
+}
+
+// waterAlong is the highest water of the dug rivers under a line, and whether it crosses any.
+func (builder *featureBuilder) waterAlong(line []mapdata.Point) (float64, bool) {
+	if builder.channels == nil {
+		return 0, false
+	}
+	highest, crosses := math.Inf(-1), false
+	for _, point := range densified(line, builder.sampleSpacing()) {
+		if water, under := builder.channels.waterUnder(point); under {
+			highest, crosses = math.Max(highest, water), true
+		}
+	}
+	return highest, crosses
+}
+
+// reachTheBanks lengthens a deck at both ends, along its direction, until it is over dry ground
+// (higher than "dry", in metres), at most by twice the widest reach of the channels.
+func (builder *featureBuilder) reachTheBanks(line []mapdata.Point, dry float64) []mapdata.Point {
+	step, farthest := builder.sampleSpacing(), 2*builder.channels.cell
+	extend := func(end, inner mapdata.Point) mapdata.Point {
+		length := mapdata.Distance(end, inner)
+		if length == 0 {
+			return end
+		}
+		east, north := (end[0]-inner[0])/length, (end[1]-inner[1])/length
+		for travelled := 0.0; travelled < farthest; travelled += step {
+			point := mapdata.Point{end[0] + east*travelled, end[1] + north*travelled}
+			if builder.height(point[0], point[1]) >= dry {
+				return point
+			}
+		}
+		return mapdata.Point{end[0] + east*farthest, end[1] + north*farthest}
+	}
+	extended := append([]mapdata.Point{}, line...)
+	extended[0] = extend(line[0], line[1])
+	extended[len(line)-1] = extend(line[len(line)-1], line[len(line)-2])
+	return extended
+}
+
+// sampleSpacing is how finely lines are walked to meet the water: a quarter of a relief cell.
+func (builder *featureBuilder) sampleSpacing() float64 {
+	if builder.input.Relief == nil {
+		return liveSampleSpacing / 2
+	}
+	return builder.input.Relief.Cell / 4
+}
+
+// squareAround is a square of a half side (km) around a point.
+func squareAround(centre mapdata.Point, half float64) mapdata.Ring {
+	return mapdata.Ring{{centre[0] - half, centre[1] - half}, {centre[0] + half, centre[1] - half},
+		{centre[0] + half, centre[1] + half}, {centre[0] - half, centre[1] + half}}
 }
 
 // gap is a stretch of a line, from and to as distances along it (km).

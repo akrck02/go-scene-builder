@@ -33,13 +33,22 @@ func (builder *featureBuilder) ground(feature *mapdata.Feature, resolved, shape 
 	return nil
 }
 
-// water lays a flat sheet across a river: each point takes the height of the bed under the
-// nearest point of the feature's axis (its lines) plus "above_bed" metres, so the water is level
-// from bank to bank. Without lines, the sheet lies "above_bed" over the lowest corner of each polygon.
+// water lays a flat sheet across a river. A river dug into the relief (see channels.go) lies at
+// its channel's level, under the banks, and covers its whole trench. Otherwise (a live scene on an
+// existing terrain) each point takes the height of the ground under the nearest point of the
+// feature's axis plus "above_bed" metres, so the water is level from bank to bank; without lines,
+// the sheet lies "above_bed" over the lowest corner of each polygon.
 func (builder *featureBuilder) water(feature *mapdata.Feature, resolved, shape style.Style) error {
 	color, err := resolved.Color("color", feature.Properties, [4]float32{0.15, 0.35, 0.5, 1})
 	if err != nil {
 		return err
+	}
+	if current := builder.channels.of(feature); current != nil {
+		level := func(point mapdata.Point) float64 { return builder.channels.levelOf(current, point) }
+		for _, corners := range builder.triangles(builder.trenchSurfaces(feature, current)) {
+			builder.drape(recipes.MaterialOf(waterMaterial, resolved), corners, color, level)
+		}
+		return nil
 	}
 	aboveBed, err := shape.Number("above_bed", feature.Properties, 1)
 	if err != nil {

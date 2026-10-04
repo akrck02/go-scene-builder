@@ -142,3 +142,13 @@ terrain is written at full resolution and at every 2nd, 4th and 8th vertex, with
 chunk edges; materials can hide from far away (`material: {hide_below: 0.1}`; facade details and
 plants do by default); models can declare simpler versions (`levels: [{below: 0.06, parts: […]},
 {below: 0.006}]`, no parts = not drawn). Materials marked `foliage: true` take the season's colour.
+
+### Rivers and bridges
+
+Rivers always run below the ground around them. With a relief, every water feature with an axis and
+a width digs its channel into the terrain: the water lies `freeboard` metres (0.6) under the lower
+bank and never rises downstream, the bed is `depth` metres (2) under it, and the ground meets the
+water at the river's edge (at least three quarters of a relief cell from the axis). Bridges
+(`follow: level` lines) that cross water keep their underside `clearance` metres (1.5) over it,
+reach out to dry ground and stand on abutments. In a live scene, where the terrain exists already,
+the water stays `above_bed` metres over the ground of its axis and bridges still clear it.

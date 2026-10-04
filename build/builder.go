@@ -87,6 +87,10 @@ type Result struct {
 // Build runs stage 1 for every feature, spread over the processor's cores.
 func Build(input Input) *Result {
 	result := &Result{Frame: frameOf(input), Roles: map[string]int{}}
+	waters, dug := digChannels(input)
+	if dug != nil {
+		input.Relief = dug
+	}
 	if input.Relief != nil {
 		result.Pieces = append(result.Pieces, terrainPieces(input.Relief, input.Layers["biome"], input.Rules.Terrain, result.Frame)...)
 	}
@@ -107,7 +111,7 @@ func Build(input Input) *Result {
 		group.Add(1)
 		go func() {
 			defer group.Done()
-			builder := &featureBuilder{input: input, frame: result.Frame, context: geos.NewContext(), output: outputs[worker], openings: openings}
+			builder := &featureBuilder{input: input, frame: result.Frame, context: geos.NewContext(), output: outputs[worker], openings: openings, channels: waters}
 			for index := worker; index < len(input.Map.Features); index += workers {
 				builder.build(input.Map.Features[index])
 			}
@@ -285,6 +289,7 @@ type featureBuilder struct {
 	context  *geos.Context
 	output   *workerOutput
 	openings relations.Openings
+	channels *channels // the rivers dug into the relief; nil without a relief
 }
 
 func (builder *featureBuilder) warn(feature *mapdata.Feature, format string, values ...any) {
