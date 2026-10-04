@@ -238,7 +238,7 @@ func buildParts(name string, parts []map[string]any, variant int) ([]*mesh.Piece
 			pieces[material.Name] = piece
 			order = append(order, piece)
 		}
-		color, err := part.Color("color", map[string]any{"id": fmt.Sprint(name, index)}, [4]float32{0.7, 0.7, 0.7, 1})
+		color, err := part.Color("color", map[string]any{"id": fmt.Sprint(name, index, variant)}, [4]float32{0.7, 0.7, 0.7, 1}) // each variant its own colour of a palette
 		if err != nil {
 			return nil, err
 		}

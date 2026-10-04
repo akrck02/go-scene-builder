@@ -103,6 +103,7 @@ type writer struct {
 	document  document
 	binary    bytes.Buffer
 	materials map[string]int
+	models    map[*mesh.Piece]int // meshes of instanced models already written: every chunk shares them
 }
 
 // Write saves the pieces and instanced models as a .glb, with the given scene extras (for example
@@ -232,8 +233,15 @@ func (output *writer) addInstances(copies *mesh.Instances) {
 		if piece.TriangleCount() == 0 {
 			continue
 		}
-		index := output.addMesh(piece, floats(piece), nil)
-		output.addDetails(index, piece, floats)
+		index, written := output.models[piece]
+		if !written {
+			index = output.addMesh(piece, floats(piece), nil)
+			output.addDetails(index, piece, floats)
+			if output.models == nil {
+				output.models = map[*mesh.Piece]int{}
+			}
+			output.models[piece] = index
+		}
 		output.document.Nodes = append(output.document.Nodes, nodeEntry{Name: copies.Name, Mesh: index,
 			Extensions: map[string]any{"EXT_mesh_gpu_instancing": map[string]any{"attributes": attributes}}})
 		output.document.Scenes[0].Nodes = append(output.document.Scenes[0].Nodes, len(output.document.Nodes)-1)

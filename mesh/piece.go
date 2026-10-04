@@ -110,10 +110,24 @@ func (piece *Piece) AddTriangle(first, second, third, outward Vector, color [4]f
 	}
 }
 
-// AddQuad appends a flat convex quadrilateral (corners in order) facing towards outward.
+// AddQuad appends a flat convex quadrilateral (corners in order) facing towards outward: four
+// vertices shared by its two triangles.
 func (piece *Piece) AddQuad(first, second, third, fourth, outward Vector, color [4]float32) {
-	piece.AddTriangle(first, second, third, outward, color)
-	piece.AddTriangle(first, third, fourth, outward, color)
+	normal := second.Subtract(first).Cross(third.Subtract(first))
+	if normal.Dot(normal) < 1e-30 {
+		normal = third.Subtract(first).Cross(fourth.Subtract(first))
+	}
+	if normal.Dot(normal) < 1e-30 {
+		return // no area
+	}
+	if normal.Dot(outward) < 0 {
+		second, fourth = fourth, second
+		normal = normal.Scale(-1)
+	}
+	normal = normal.Normalized()
+	a, b := piece.AddVertex(first, normal, color), piece.AddVertex(second, normal, color)
+	c, d := piece.AddVertex(third, normal, color), piece.AddVertex(fourth, normal, color)
+	piece.Indices = append(piece.Indices, a, b, c, a, c, d)
 }
 
 // Append adds another piece's geometry to this one.

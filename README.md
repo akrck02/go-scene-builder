@@ -181,3 +181,10 @@ the season).
 The stonework recipe gives houses a plinth and corner stones (`stonework: {plinth, quoins}`), and
 facades can frame windows and doors in stone (`facade.frames`); baskets are round. Model parts can
 be tipped over around their own z axis (`roll`, degrees), so a cylinder can be a wheel.
+
+### Chimneys and lighter files
+
+Sloped roofs can carry stone chimneys on a share of the houses (`roof.chimneys: {share, width,
+above}`). Quads share their four vertices, instanced models are written once for every chunk that
+uses them, corner stones are one column per corner, and boxes standing on the ground have no
+underside: the same city weighs about half.

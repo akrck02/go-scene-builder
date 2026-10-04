@@ -59,7 +59,7 @@ func (decorator *Decorator) Decorate(current *block.Block, pieceFor PieceFor) er
 		if err := decorator.facade(current, pieceFor); err != nil {
 			return err
 		}
-		return decorator.slopedRoof(current, roofPiece, wallPiece, roof, walls, recipe == "hip")
+		return decorator.slopedRoof(current, pieceFor, roofPiece, wallPiece, roof, walls, recipe == "hip")
 	default:
 		return fmt.Errorf("unknown roof recipe %q", recipe)
 	}

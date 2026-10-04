@@ -80,7 +80,9 @@ func (wall wallFrame) box(piece *mesh.Piece, along0, along1, up0, up1, out0, out
 	corner := func(along, height, out float64) mesh.Vector { return wall.point(along, height, out) }
 	piece.AddQuad(corner(along0, up0, out1), corner(along1, up0, out1), corner(along1, up1, out1), corner(along0, up1, out1), outward, color)
 	piece.AddQuad(corner(along0, up1, out0), corner(along1, up1, out0), corner(along1, up1, out1), corner(along0, up1, out1), up, color)
-	piece.AddQuad(corner(along0, up0, out0), corner(along1, up0, out0), corner(along1, up0, out1), corner(along0, up0, out1), down, color)
+	if up0 > 0.01 { // the underside of what stands on the ground never shows
+		piece.AddQuad(corner(along0, up0, out0), corner(along1, up0, out0), corner(along1, up0, out1), corner(along0, up0, out1), down, color)
+	}
 	piece.AddQuad(corner(along0, up0, out0), corner(along0, up0, out1), corner(along0, up1, out1), corner(along0, up1, out0), sideways.Scale(-1), color)
 	piece.AddQuad(corner(along1, up0, out0), corner(along1, up0, out1), corner(along1, up1, out1), corner(along1, up1, out0), sideways, color)
 }

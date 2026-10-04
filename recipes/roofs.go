@@ -38,7 +38,7 @@ func (decorator *Decorator) flatRoof(current *block.Block, piece *mesh.Piece, ro
 // slopedRoof puts a gable or hip roof over the smallest rectangle around the footprint: two slopes
 // from the eaves (lowered by the overhang) up to the ridge, and two gable ends (wall colour) or
 // two more slopes (hip).
-func (decorator *Decorator) slopedRoof(current *block.Block, piece, wallPiece *mesh.Piece, roof style.Style, walls [4]float32, hip bool) error {
+func (decorator *Decorator) slopedRoof(current *block.Block, pieceFor PieceFor, piece, wallPiece *mesh.Piece, roof style.Style, walls [4]float32, hip bool) error {
 	values := map[string]float64{"pitch": 38, "eaves": 0.5}
 	for key, fallback := range values {
 		value, err := roof.Number(key, current.Feature.Properties, fallback)
@@ -57,6 +57,44 @@ func (decorator *Decorator) slopedRoof(current *block.Block, piece, wallPiece *m
 	}
 	corners = alongRidge(corners, roof.Text("ridge", "long"), current.Facing)
 	decorator.addSlopes(piece, wallPiece, corners, current.Eaves, values["pitch"], values["eaves"]/1000, hip, color, walls)
+	return decorator.chimney(current, pieceFor, roof.Section("chimneys"), corners, values["pitch"])
+}
+
+var chimneyMaterial = mesh.Material{Name: "chimneys", Kind: "lit", HideBelow: facadeHideBelow}
+
+// chimney raises, on a share of the houses, a stone chimney through one slope of the roof, between
+// a fifth and four fifths along the ridge (chimneys: {share, width, above, color, material}).
+func (decorator *Decorator) chimney(current *block.Block, pieceFor PieceFor, settings style.Style, corners mapdata.Ring, pitch float64) error {
+	properties := current.Feature.Properties
+	share, err := settings.Number("share", properties, 0)
+	if err != nil || !chosen(properties, "chimney", share) {
+		return err
+	}
+	width, err := settings.Number("width", properties, 0.6)
+	if err != nil {
+		return err
+	}
+	above, err := settings.Number("above", properties, 0.9)
+	if err != nil {
+		return err
+	}
+	color, err := settings.Color("color", properties, [4]float32{0.55, 0.5, 0.45, 1})
+	if err != nil {
+		return err
+	}
+	along, across := mapdata.Direction(corners[0], corners[1]), mapdata.Direction(corners[0], corners[3])
+	halfWidth := mapdata.Distance(corners[0], corners[3]) * 1000 / 2
+	length := mapdata.Distance(corners[0], corners[1]) * 1000
+	where := 0.2 + 0.6*float64(style.Pick(properties, "chimney place", 1000))/1000
+	fromRidge := halfWidth * 0.45 // down one slope
+	ridgeHeight := current.Eaves + halfWidth*math.Tan(pitch*math.Pi/180)
+	base := ridgeHeight - (fromRidge+width)*math.Tan(pitch*math.Pi/180)
+	start := mapdata.Point{corners[0][0] + (along[0]*length*where+across[0]*(halfWidth-fromRidge-width))/1000,
+		corners[0][1] + (along[1]*length*where+across[1]*(halfWidth-fromRidge-width))/1000}
+	stack := wallFrame{frame: decorator.Frame, start: start, along: along, outward: across, ground: 0, length: width}
+	piece := pieceFor(MaterialOf(chimneyMaterial, settings))
+	stack.box(piece, 0, width, base, ridgeHeight+above, 0, width, color)
+	stack.box(piece, -0.06, width+0.06, ridgeHeight+above, ridgeHeight+above+0.12, -0.06, width+0.06, color) // the cap
 	return nil
 }
 

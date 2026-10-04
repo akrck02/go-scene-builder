@@ -1,6 +1,7 @@
 package recipes
 
 import (
+	"math"
 	"testing"
 
 	"github.com/akrck02/go-scene-builder/block"
@@ -84,5 +85,34 @@ func TestRoundDoorBasketsAndIvy(test *testing.T) {
 	}
 	if top < 0.0021 { // the hooks of the baskets reach 2.15 m; a round door 2.3 m
 		test.Errorf("details reach only %v m", top*1000)
+	}
+}
+
+func TestChimneyRisesAboveTheRidge(test *testing.T) {
+	ring := mapdata.Ring{{0, 0}, {0.01, 0}, {0.01, 0.006}, {0, 0.006}}
+	current := &block.Block{Feature: &mapdata.Feature{Identifier: "house", Properties: map[string]any{"id": "house"}},
+		Polygon: mapdata.Polygon{Exterior: ring}, Ground: 0, Bottom: -1, Eaves: 6,
+		Style: style.Style{"roof": map[string]any{"recipe": "gable", "pitch": 40.0, "chimneys": map[string]any{"share": 1.0, "above": 1.0}}}}
+	pieces := map[string]*mesh.Piece{}
+	pieceFor := func(material mesh.Material) *mesh.Piece {
+		if pieces[material.Name] == nil {
+			pieces[material.Name] = &mesh.Piece{Material: material}
+		}
+		return pieces[material.Name]
+	}
+	if err := (&Decorator{Context: geos.NewContext()}).Decorate(current, pieceFor); err != nil {
+		test.Fatal(err)
+	}
+	chimney := pieces["chimneys"]
+	if chimney == nil || chimney.TriangleCount() == 0 {
+		test.Fatal("no chimney")
+	}
+	top := 0.0
+	for index := 1; index < len(chimney.Positions); index += 3 {
+		top = max(top, float64(chimney.Positions[index]))
+	}
+	ridge := 6 + 3*math.Tan(40*math.Pi/180) // half the 6 m width
+	if top*1000 < ridge+0.9 {
+		test.Errorf("the chimney tops out at %.2f m, the ridge is at %.2f m", top*1000, ridge)
 	}
 }

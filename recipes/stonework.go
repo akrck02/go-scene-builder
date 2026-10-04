@@ -10,12 +10,11 @@ import (
 )
 
 // The stonework recipe dresses a house in stone where a mason would: a plinth along the foot of
-// every wall that shows, and dressed stones up the corners, one course out of two jutting further
-// (sizes in metres):
+// every wall that shows, and a column of dressed stones up the corners (sizes in metres):
 //
 //	stonework:
 //	  plinth: {height: 0.8, out: 0.06}
-//	  quoins: {width: 0.45, course: 0.35, out: 0.04}
+//	  quoins: {width: 0.45, out: 0.04}
 //	  color: ["#b9b0a0", "#a9a090"]
 //	  material: {pattern: masonry, scale: 0.35}
 //
@@ -66,7 +65,7 @@ func stoneworkNumbers(settings style.Style, properties map[string]any) (map[stri
 		fallback           float64
 	}{
 		{"plinth height", "plinth", "height", 0}, {"plinth out", "plinth", "out", 0.06},
-		{"quoin width", "quoins", "width", 0}, {"quoin course", "quoins", "course", 0.35}, {"quoin out", "quoins", "out", 0.04},
+		{"quoin width", "quoins", "width", 0}, {"quoin out", "quoins", "out", 0.04},
 	} {
 		value, err := settings.Section(entry.section).Number(entry.key, properties, entry.fallback)
 		if err != nil {
@@ -77,16 +76,13 @@ func stoneworkNumbers(settings style.Style, properties map[string]any) (map[stri
 	return values, nil
 }
 
-// quoins stack dressed stones at the start of a wall (its end is the start of the next one),
-// alternating long and short, from the plinth to the eaves.
+// quoins dress the start of a wall (its end is the start of the next one) with a column of corner
+// stones from the plinth to the eaves: one box, whose stone pattern draws the courses (a stone per
+// course would cost twelve triangles each, on every corner of every house).
 func (decorator *Decorator) quoins(wall wallFrame, piece *mesh.Piece, values map[string]float64, height float64, color [4]float32) {
-	course := math.Max(values["quoin course"], 0.1)
-	for up, index := math.Max(values["plinth height"], 0), 0; up+course*0.5 < height; up, index = up+course, index+1 {
-		width := values["quoin width"]
-		if index%2 == 1 {
-			width *= 0.6
-		}
-		top := math.Min(up+course-0.02, height)
-		wall.box(piece, 0, width, up, top, 0, values["quoin out"], color)
+	bottom := math.Max(values["plinth height"], 0)
+	if height-bottom < 0.5 {
+		return
 	}
+	wall.box(piece, 0, values["quoin width"], bottom, height, 0, values["quoin out"], color)
 }
