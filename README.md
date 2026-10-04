@@ -175,3 +175,9 @@ a gate can be built as a model and placed on a point; `gate_towers` skips the ga
 kind (`except_near: main_gate`). Facades can have round-topped doors (`door.round`: share), flower
 baskets beside the door (`baskets`) and ivy climbing the wall (`ivy`, a foliage material that takes
 the season).
+
+### Stonework and rolled parts
+
+The stonework recipe gives houses a plinth and corner stones (`stonework: {plinth, quoins}`), and
+facades can frame windows and doors in stone (`facade.frames`); baskets are round. Model parts can
+be tipped over around their own z axis (`roll`, degrees), so a cylinder can be a wheel.

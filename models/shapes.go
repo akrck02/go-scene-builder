@@ -46,11 +46,11 @@ func addCylinder(piece *mesh.Piece, place placement, bottom, top, height float64
 		middle := low[side].Add(low[next]).Scale(0.5).Subtract(axisLow)
 		if top > 0 {
 			piece.AddQuad(low[side], low[next], high[next], high[side], middle, color)
-			piece.AddTriangle(axisHigh, high[side], high[next], upwards, color)
+			piece.AddTriangle(axisHigh, high[side], high[next], place.direction(0, 1, 0), color)
 		} else {
 			piece.AddTriangle(low[side], low[next], axisHigh, middle, color)
 		}
-		piece.AddTriangle(axisLow, low[next], low[side], upwards.Scale(-1), color)
+		piece.AddTriangle(axisLow, low[next], low[side], place.direction(0, -1, 0), color)
 	}
 }
 

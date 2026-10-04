@@ -16,7 +16,8 @@
 // top_radius), blob (radius or size [x, y, z], sides, rings; smooth unless smooth: false; wobble:
 // a share of its size that bends it out of round, like a tree crown), petals (count, length, width,
 // tilt in degrees from flat), ogive (a pointed arch: width, straight sides, depth; with border, a
-// frame around an opening of the same shape). Every part can be placed (at: [x, y, z]) and turned around the
+// frame around an opening of the same shape). Every part can be placed (at: [x, y, z]), tipped over around its
+// own z axis (roll: degrees; 90 lays a cylinder on its side, like a wheel) and turned around the
 // vertical axis (turn: degrees), and has a colour (or a palette: each part takes one) and a
 // material.
 //
@@ -252,17 +253,28 @@ func buildParts(name string, parts []map[string]any, variant int) ([]*mesh.Piece
 type placement struct {
 	at   [3]float64
 	turn float64 // radians around the vertical
+	roll float64 // radians around the part's own z axis, before the turn (a wheel lies on its side)
 }
 
 func (place placement) point(x, y, z float64) mesh.Vector {
+	x, y = place.rolled(x, y)
 	cosine, sine := math.Cos(place.turn), math.Sin(place.turn)
 	return mesh.Vector{(place.at[0] + x*cosine - z*sine) / 1000, (place.at[1] + y) / 1000, (place.at[2] + x*sine + z*cosine) / 1000}
 }
 
 // direction turns a local direction like the placement turns points (for normals).
 func (place placement) direction(x, y, z float64) mesh.Vector {
+	x, y = place.rolled(x, y)
 	cosine, sine := math.Cos(place.turn), math.Sin(place.turn)
 	return mesh.Vector{x*cosine - z*sine, y, x*sine + z*cosine}
+}
+
+func (place placement) rolled(x, y float64) (float64, float64) {
+	if place.roll == 0 {
+		return x, y
+	}
+	cosine, sine := math.Cos(place.roll), math.Sin(place.roll)
+	return x*cosine - y*sine, x*sine + y*cosine
 }
 
 func placementOf(part style.Style) placement {
@@ -274,6 +286,8 @@ func placementOf(part style.Style) placement {
 	}
 	turn, _ := part.Number("turn", nil, 0)
 	place.turn = turn * math.Pi / 180
+	roll, _ := part.Number("roll", nil, 0)
+	place.roll = roll * math.Pi / 180
 	return place
 }
 

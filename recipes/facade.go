@@ -23,6 +23,7 @@ import (
 //	  lamp: {share: 0.3, color: "#ffb04a"}          # a glowing lamp beside the door
 //	  baskets: {share: 0.3, color: "#8a6a44", flowers: [...]}   # flower baskets hung beside the door
 //	  ivy: {share: 0.2, color: ["#3f6b32", ...], height: [2, 6]} # ivy climbing the wall (takes the season)
+//	  frames: {width: 0.14, out: 0.05, color: "#c9c0ae"}         # stone frames and sills round windows and doors
 //
 // Every choice (palette colours, which windows get flower boxes) is stable for each block.
 
@@ -50,6 +51,28 @@ func (wall wallFrame) point(along, up, out float64) mesh.Vector {
 }
 
 // box adds a box standing out of the wall: from along0 to along1, up0 to up1, out0 to out1.
+// post adds an upright many-sided post standing out of the wall: its axis "out" metres from the
+// wall, "along" it, from bottom to top; a basket, a pot, a column.
+func (wall wallFrame) post(piece *mesh.Piece, along, out, radius, bottom, top float64, sides int, color [4]float32) {
+	ring := func(up float64) []mesh.Vector {
+		points := make([]mesh.Vector, sides)
+		for side := range sides {
+			angle := 2 * math.Pi * float64(side) / float64(sides)
+			points[side] = wall.point(along+radius*math.Cos(angle), up, out+radius*math.Sin(angle))
+		}
+		return points
+	}
+	low, high := ring(bottom), ring(top)
+	axisLow, axisHigh := wall.point(along, bottom, out), wall.point(along, top, out)
+	for side := range sides {
+		next := (side + 1) % sides
+		middle := low[side].Add(low[next]).Scale(0.5).Subtract(axisLow)
+		piece.AddQuad(low[side], low[next], high[next], high[side], middle, color)
+		piece.AddTriangle(axisHigh, high[side], high[next], mesh.Vector{0, 1, 0}, color)
+		piece.AddTriangle(axisLow, low[next], low[side], mesh.Vector{0, -1, 0}, color)
+	}
+}
+
 func (wall wallFrame) box(piece *mesh.Piece, along0, along1, up0, up1, out0, out1 float64, color [4]float32) {
 	outward := mesh.SceneDirection(wall.outward[0], wall.outward[1], 0)
 	sideways := mesh.SceneDirection(wall.along[0], wall.along[1], 0)
@@ -130,6 +153,7 @@ func facadeNumbers(settings style.Style, properties map[string]any) (map[string]
 		{"box share", "flower_boxes", "share", 0}, {"glowing share", "flower_boxes", "glowing", 0},
 		{"emblem size", "emblem", "size", 0}, {"lamp share", "lamp", "share", 0},
 		{"round share", "door", "round", 0}, {"basket share", "baskets", "share", 0}, {"ivy share", "ivy", "share", 0},
+		{"frame width", "frames", "width", 0}, {"frame out", "frames", "out", 0.05},
 	} {
 		section := settings
 		if entry.section != "" {
@@ -153,6 +177,9 @@ func (decorator *Decorator) door(wall wallFrame, settings style.Style, propertie
 	section := settings.Section("door")
 	color, err := section.Color("color", properties, [4]float32{0.25, 0.15, 0.08, 1})
 	if err != nil {
+		return err
+	}
+	if err := decorator.frame(wall, settings, properties, pieceFor, at, half, 0, values["door height"], false, values); err != nil {
 		return err
 	}
 	if chosen(properties, "round door", values["round share"]) {
@@ -223,6 +250,9 @@ func (decorator *Decorator) windowRow(wall wallFrame, settings style.Style, prop
 			continue
 		}
 		wall.box(pieceFor(glassMaterial), at-half, at+half, sill, top, 0, 0.03, glass)
+		if err := decorator.frame(wall, settings, properties, pieceFor, at, half, sill, top, true, values); err != nil {
+			return err
+		}
 		shutterPiece := pieceFor(MaterialOf(detailMaterial, windows))
 		wall.box(shutterPiece, at-2*half, at-half-0.02, sill, top, 0, 0.05, shutters)
 		wall.box(shutterPiece, at+half+0.02, at+2*half, sill, top, 0, 0.05, shutters)
@@ -271,6 +301,27 @@ var (
 	ivyMaterial    = mesh.Material{Name: "ivy", Kind: "lit", Foliage: true, HideBelow: facadeHideBelow}
 )
 
+// frame puts a stone frame round an opening: jambs, a lintel and, under a window, a sill that juts out.
+func (decorator *Decorator) frame(wall wallFrame, settings style.Style, properties map[string]any, pieceFor PieceFor, at, half, bottom, top float64, sill bool, values map[string]float64) error {
+	width, out := values["frame width"], values["frame out"]
+	if width <= 0 {
+		return nil
+	}
+	section := settings.Section("frames")
+	color, err := section.Color("color", properties, [4]float32{0.78, 0.75, 0.68, 1})
+	if err != nil {
+		return err
+	}
+	piece := pieceFor(MaterialOf(detailMaterial, section))
+	wall.box(piece, at-half-width, at-half, bottom, top+width, 0, out, color)
+	wall.box(piece, at+half, at+half+width, bottom, top+width, 0, out, color)
+	wall.box(piece, at-half-width, at+half+width, top, top+width, 0, out, color)
+	if sill {
+		wall.box(piece, at-half-width-0.05, at+half+width+0.05, bottom-0.08, bottom, 0, out+0.08, color)
+	}
+	return nil
+}
+
 // chosen tells, stably for each block, whether it gets something that only a share of blocks get.
 func chosen(properties map[string]any, what string, share float64) bool {
 	return share > 0 && float64(style.Pick(properties, what, 1000))/1000 < share
@@ -302,17 +353,18 @@ func (decorator *Decorator) baskets(wall wallFrame, settings style.Style, proper
 		if at < 0.5 || at > wall.length-0.5 {
 			continue
 		}
-		wall.box(pieceFor(MaterialOf(detailMaterial, settings)), at-0.3, at+0.3, 1.45, 1.75, 0.05, 0.45, wicker)
-		wall.box(pieceFor(detailMaterial), at-0.02, at+0.02, 1.75, 2.15, 0.02, 0.06, wicker) // the hook
-		for flower := range 7 {
+		wall.post(pieceFor(MaterialOf(detailMaterial, settings)), at, 0.3, 0.26, 1.45, 1.72, 10, wicker)
+		wall.box(pieceFor(detailMaterial), at-0.02, at+0.02, 1.72, 2.15, 0.02, 0.06, wicker) // the hook
+		for flower := range 9 {
 			color := [4]float32{0.85, 0.3, 0.4, 1}
 			if len(palette) > 0 {
 				if color, err = style.LinearColor(asText(palette[random.IntN(len(palette))])); err != nil {
 					return err
 				}
 			}
-			along := at - 0.27 + 0.54*float64(flower)/6
-			wall.box(pieceFor(flowerMaterial), along-0.05, along+0.05, 1.72, 1.86+0.1*random.Float64(), 0.1+0.25*random.Float64(), 0.2+0.25*random.Float64(), color)
+			angle, reach := 2*math.Pi*float64(flower)/9, 0.12+0.08*random.Float64()
+			wall.post(pieceFor(flowerMaterial), at+reach*math.Cos(angle), 0.3+reach*math.Sin(angle), 0.05+0.02*random.Float64(),
+				1.72, 1.8+0.12*random.Float64(), 6, color)
 		}
 	}
 	return nil

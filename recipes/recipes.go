@@ -39,6 +39,9 @@ func (decorator *Decorator) Decorate(current *block.Block, pieceFor PieceFor) er
 	switch recipe := roof.Text("recipe", "flat"); recipe {
 	case "flat":
 		decorator.walls(current, wallPiece, walls)
+		if err := decorator.stonework(current, pieceFor); err != nil {
+			return err
+		}
 		if err := decorator.facade(current, pieceFor); err != nil {
 			return err
 		}
@@ -50,6 +53,9 @@ func (decorator *Decorator) Decorate(current *block.Block, pieceFor PieceFor) er
 			current = onRectangle(current, rectangle)
 		}
 		decorator.walls(current, wallPiece, walls)
+		if err := decorator.stonework(current, pieceFor); err != nil {
+			return err
+		}
 		if err := decorator.facade(current, pieceFor); err != nil {
 			return err
 		}
