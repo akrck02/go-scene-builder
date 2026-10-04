@@ -3,14 +3,15 @@ package build
 import (
 	"math"
 
+	"github.com/akrck02/go-scene-builder/block"
 	"github.com/akrck02/go-scene-builder/mapdata"
 	"github.com/akrck02/go-scene-builder/mesh"
 	"github.com/akrck02/go-scene-builder/style"
 )
 
-// volume raises each polygon of a feature as a prism: from "sink" metres below the lowest relief
-// under its corners (so it does not float on a slope) to "height" metres above that lowest point,
-// with walls of "walls.color" and a flat top of "roof.color" (stage 4 will put real roofs on it).
+// volume turns each polygon of a feature into a block: walls from "sink" metres below the lowest
+// relief under its corners (so it does not float on a slope) to "height" metres above that lowest
+// point, where the eaves are. The walls and roof come later, from the recipes (stage 4).
 func (builder *featureBuilder) volume(feature *mapdata.Feature, resolved, shape style.Style) error {
 	height, err := shape.Number("height", feature.Properties, 3)
 	if err != nil {
@@ -20,20 +21,14 @@ func (builder *featureBuilder) volume(feature *mapdata.Feature, resolved, shape 
 	if err != nil {
 		return err
 	}
-	walls, err := resolved.Section("walls").Color("color", [4]float32{0.8, 0.78, 0.72, 1})
-	if err != nil {
-		return err
-	}
-	roof, err := resolved.Section("roof").Color("color", walls)
-	if err != nil {
-		return err
-	}
 	for _, polygon := range feature.Polygons {
 		if !builder.coversAll(polygon.Exterior) {
 			continue
 		}
 		base := builder.lowestOf(polygon.Exterior)
-		builder.prism(polygon, base-sink, base+height, walls, roof)
+		polygon.Exterior = polygon.Exterior.Anticlockwise()
+		builder.output.blocks = append(builder.output.blocks,
+			&block.Block{Feature: feature, Style: resolved, Polygon: polygon, Bottom: base - sink, Eaves: base + height})
 	}
 	return nil
 }

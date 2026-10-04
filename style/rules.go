@@ -5,6 +5,7 @@
 //	units: m
 //	environment: {sun: [235, 38]}
 //	terrain: {color: "#6b7f47", bands: [{above: 350, color: "#9e9e99", blend: 30}]}
+//	relations: {facing: {when: {kind: street}, reach: 20}, rows: {tolerance: 0.4}}
 //	rules:
 //	  - when: {kind: building}
 //	    shape: {role: volume, height: "3.5 + (floors - 1) * 3"}
@@ -24,6 +25,7 @@ type Rules struct {
 	Units       string         `yaml:"units"`
 	Environment map[string]any `yaml:"environment"`
 	Terrain     map[string]any `yaml:"terrain"`
+	Relations   map[string]any `yaml:"relations"`
 	Rules       []Rule         `yaml:"rules"`
 }
 

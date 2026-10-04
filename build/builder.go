@@ -1,6 +1,7 @@
-// Package build turns a map, a relief and style rules into pieces of a scene: stage 1 of the scene
-// builder (basic blocks). Each feature gets a role from its style ("shape.role"): ground, water,
-// volume, line, point or none; the relief becomes the terrain.
+// Package build turns a map, a relief and style rules into pieces of a scene. It runs stage 1 of the
+// scene builder (basic blocks), then stage 2 (relations) and stage 4 (recipes) on the volumes. Each
+// feature gets a role from its style ("shape.role"): ground, water, volume, line, point or none;
+// the relief becomes the terrain.
 package build
 
 import (
@@ -10,8 +11,11 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/akrck02/go-scene-builder/block"
 	"github.com/akrck02/go-scene-builder/mapdata"
 	"github.com/akrck02/go-scene-builder/mesh"
+	"github.com/akrck02/go-scene-builder/recipes"
+	"github.com/akrck02/go-scene-builder/relations"
 	"github.com/akrck02/go-scene-builder/relief"
 	"github.com/akrck02/go-scene-builder/style"
 	"github.com/twpayne/go-geos"
@@ -40,6 +44,9 @@ type Result struct {
 	Pieces   []*mesh.Piece
 	Frame    mesh.Frame
 	Roles    map[string]int // features per role
+	Blocks   int            // volumes decorated by the recipes
+	Facing   int            // blocks with a side onto a street
+	Shared   int            // walls a neighbour leans against
 	Warnings []string
 }
 
@@ -64,8 +71,52 @@ func Build(input Input) *Result {
 		}()
 	}
 	group.Wait()
+	var blocks []*block.Block
+	for _, output := range outputs {
+		blocks = append(blocks, output.blocks...)
+	}
+	relations.Compute(blocks, input.Map.Features, input.Rules.Relations)
+	result.count(blocks)
+	outputs = append(outputs, decorate(blocks, result.Frame, workers)...)
 	result.gather(outputs)
 	return result
+}
+
+func (result *Result) count(blocks []*block.Block) {
+	result.Blocks = len(blocks)
+	for _, current := range blocks {
+		if current.Facing != nil {
+			result.Facing++
+		}
+		for _, shared := range current.Shared {
+			if shared {
+				result.Shared++
+			}
+		}
+	}
+}
+
+// decorate runs the recipes of every block, spread over the processor's cores.
+func decorate(blocks []*block.Block, frame mesh.Frame, workers int) []*workerOutput {
+	outputs := make([]*workerOutput, workers)
+	var group sync.WaitGroup
+	for worker := range workers {
+		outputs[worker] = newWorkerOutput()
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			decorator := &recipes.Decorator{Frame: frame, Context: geos.NewContext()}
+			for index := worker; index < len(blocks); index += workers {
+				current := blocks[index]
+				first := current.Polygon.Exterior[0]
+				if err := decorator.Decorate(current, outputs[worker].piece(solidMaterial, first[0], first[1])); err != nil {
+					outputs[worker].warnings = append(outputs[worker].warnings, fmt.Sprintf("%s (%s): %v", current.Feature.Identifier, current.Feature.Kind, err))
+				}
+			}
+		}()
+	}
+	group.Wait()
+	return outputs
 }
 
 func frameOf(input Input) mesh.Frame {
@@ -81,6 +132,7 @@ func frameOf(input Input) mesh.Frame {
 
 // workerOutput is what one worker built: pieces by material and chunk, roles and warnings.
 type workerOutput struct {
+	blocks   []*block.Block
 	pieces   map[pieceKey]*mesh.Piece
 	roles    map[string]int
 	warnings []string

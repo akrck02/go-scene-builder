@@ -1,5 +1,7 @@
 // Package gltf writes pieces as a binary glTF 2.0 file (.glb) with the conventions go-renderer
-// reads: positions and normals as float32, colours as normalised bytes, a node per piece, "ground"
+// reads, quantised to take less room (KHR_mesh_quantization): positions as 16-bit integers that
+// the node scales and moves back, normals and colours as normalised bytes, 16-bit indices when
+// they fit. A node per piece, "ground"
 // in the extras of walkable pieces, the material "kind" and "depthBias" in the material extras, and
 // the environment (sun, fog, water, vertical scale) in the scene extras.
 package gltf
@@ -15,15 +17,20 @@ import (
 )
 
 const (
-	componentUnsignedByte = 5121
-	componentUnsignedInt  = 5125
-	componentFloat        = 5126
-	targetVertices        = 34962
-	targetIndices         = 34963
+	componentByte          = 5120
+	componentUnsignedByte  = 5121
+	componentShort         = 5122
+	componentUnsignedShort = 5123
+	componentUnsignedInt   = 5125
+	largestShort           = 32767
+	targetVertices         = 34962
+	targetIndices          = 34963
 )
 
 type document struct {
 	Asset       map[string]string `json:"asset"`
+	Used        []string          `json:"extensionsUsed"`
+	Required    []string          `json:"extensionsRequired"`
 	Scene       int               `json:"scene"`
 	Scenes      []sceneEntry      `json:"scenes"`
 	Nodes       []nodeEntry       `json:"nodes"`
@@ -40,9 +47,11 @@ type sceneEntry struct {
 }
 
 type nodeEntry struct {
-	Name   string         `json:"name"`
-	Mesh   int            `json:"mesh"`
-	Extras map[string]any `json:"extras,omitempty"`
+	Name        string         `json:"name"`
+	Mesh        int            `json:"mesh"`
+	Translation []float64      `json:"translation"`
+	Scale       []float64      `json:"scale"`
+	Extras      map[string]any `json:"extras,omitempty"`
 }
 
 type meshEntry struct {
@@ -79,6 +88,7 @@ type bufferViewEntry struct {
 	Buffer     int `json:"buffer"`
 	ByteOffset int `json:"byteOffset"`
 	ByteLength int `json:"byteLength"`
+	ByteStride int `json:"byteStride,omitempty"`
 	Target     int `json:"target,omitempty"`
 }
 
@@ -106,6 +116,8 @@ func Write(path string, pieces []*mesh.Piece, sceneExtras map[string]any) (int, 
 func Encode(pieces []*mesh.Piece, sceneExtras map[string]any) ([]byte, error) {
 	output := &writer{materials: map[string]int{}}
 	output.document.Asset = map[string]string{"version": "2.0", "generator": "go-scene-builder"}
+	output.document.Used = []string{"KHR_mesh_quantization"}
+	output.document.Required = []string{"KHR_mesh_quantization"}
 	output.document.Scenes = []sceneEntry{{Nodes: []int{}, Extras: sceneExtras}}
 	for _, piece := range pieces {
 		if piece.TriangleCount() > 0 {
@@ -121,9 +133,10 @@ func Encode(pieces []*mesh.Piece, sceneExtras map[string]any) ([]byte, error) {
 }
 
 func (output *writer) addPiece(piece *mesh.Piece) {
+	centre, scale := quantisation(piece.Positions)
 	attributes := map[string]int{
-		"POSITION": output.floatAccessor(piece.Positions, "VEC3", true),
-		"NORMAL":   output.floatAccessor(piece.Normals, "VEC3", false),
+		"POSITION": output.positionAccessor(piece.Positions, centre, scale),
+		"NORMAL":   output.normalAccessor(piece.Normals),
 		"COLOR_0":  output.colorAccessor(piece.Colors),
 	}
 	primitive := primitiveEntry{Attributes: attributes, Indices: output.indexAccessor(piece.Indices), Material: output.material(piece.Material)}
@@ -132,7 +145,8 @@ func (output *writer) addPiece(piece *mesh.Piece) {
 		extras = map[string]any{"ground": true}
 	}
 	output.document.Meshes = append(output.document.Meshes, meshEntry{Name: piece.Name, Primitives: []primitiveEntry{primitive}, Extras: extras})
-	output.document.Nodes = append(output.document.Nodes, nodeEntry{Name: piece.Name, Mesh: len(output.document.Meshes) - 1, Extras: extras})
+	output.document.Nodes = append(output.document.Nodes, nodeEntry{Name: piece.Name, Mesh: len(output.document.Meshes) - 1,
+		Translation: centre[:], Scale: []float64{scale, scale, scale}, Extras: extras})
 	output.document.Scenes[0].Nodes = append(output.document.Scenes[0].Nodes, len(output.document.Nodes)-1)
 }
 
@@ -158,12 +172,16 @@ func (output *writer) material(material mesh.Material) int {
 
 // view appends data to the binary buffer (aligned to 4 bytes) and returns its buffer view.
 func (output *writer) view(data []byte, target int) int {
+	return output.stridedView(data, target, 0)
+}
+
+func (output *writer) stridedView(data []byte, target, stride int) int {
 	for output.binary.Len()%4 != 0 {
 		output.binary.WriteByte(0)
 	}
 	offset := output.binary.Len()
 	output.binary.Write(data)
-	output.document.BufferViews = append(output.document.BufferViews, bufferViewEntry{ByteOffset: offset, ByteLength: len(data), Target: target})
+	output.document.BufferViews = append(output.document.BufferViews, bufferViewEntry{ByteOffset: offset, ByteLength: len(data), ByteStride: stride, Target: target})
 	return len(output.document.BufferViews) - 1
 }
 
@@ -172,16 +190,49 @@ func (output *writer) accessor(entry accessorEntry) int {
 	return len(output.document.Accessors) - 1
 }
 
-func (output *writer) floatAccessor(values []float32, kind string, withBounds bool) int {
-	data := make([]byte, 4*len(values))
-	for index, value := range values {
-		binary.LittleEndian.PutUint32(data[4*index:], math.Float32bits(value))
+// quantisation is the centre and the scale that turn a piece's positions into 16-bit integers.
+func quantisation(positions []float32) ([3]float64, float64) {
+	minimum, maximum := boundsOf(positions)
+	var centre [3]float64
+	reach := 0.0
+	for axis := range 3 {
+		centre[axis] = (float64(minimum[axis]) + float64(maximum[axis])) / 2
+		reach = math.Max(reach, (float64(maximum[axis])-float64(minimum[axis]))/2)
 	}
-	entry := accessorEntry{BufferView: output.view(data, targetVertices), ComponentType: componentFloat, Count: len(values) / 3, Type: kind}
-	if withBounds {
-		entry.Minimum, entry.Maximum = boundsOf(values)
+	if reach == 0 {
+		reach = 1
 	}
-	return output.accessor(entry)
+	return centre, reach / largestShort
+}
+
+func (output *writer) positionAccessor(positions []float32, centre [3]float64, scale float64) int {
+	data := make([]byte, 0, 8*len(positions)/3)
+	minimum := []float32{largestShort, largestShort, largestShort}
+	maximum := []float32{-largestShort, -largestShort, -largestShort}
+	for index, value := range positions {
+		axis := index % 3
+		whole := int16(math.Round((float64(value) - centre[axis]) / scale))
+		minimum[axis], maximum[axis] = min(minimum[axis], float32(whole)), max(maximum[axis], float32(whole))
+		data = binary.LittleEndian.AppendUint16(data, uint16(whole))
+		if axis == 2 {
+			data = append(data, 0, 0) // vertex attributes are aligned to 4 bytes
+		}
+	}
+	view := output.stridedView(data, targetVertices, 8)
+	return output.accessor(accessorEntry{BufferView: view, ComponentType: componentShort, Count: len(positions) / 3, Type: "VEC3",
+		Minimum: minimum, Maximum: maximum})
+}
+
+func (output *writer) normalAccessor(normals []float32) int {
+	data := make([]byte, 0, 4*len(normals)/3)
+	for index, value := range normals {
+		data = append(data, byte(int8(math.Round(math.Max(-1, math.Min(1, float64(value)))*127))))
+		if index%3 == 2 {
+			data = append(data, 0)
+		}
+	}
+	view := output.stridedView(data, targetVertices, 4)
+	return output.accessor(accessorEntry{BufferView: view, ComponentType: componentByte, Normalized: true, Count: len(normals) / 3, Type: "VEC3"})
 }
 
 func (output *writer) colorAccessor(values []float32) int {
@@ -194,9 +245,21 @@ func (output *writer) colorAccessor(values []float32) int {
 }
 
 func (output *writer) indexAccessor(indices []uint32) int {
-	data := make([]byte, 4*len(indices))
-	for index, value := range indices {
-		binary.LittleEndian.PutUint32(data[4*index:], value)
+	largest := uint32(0)
+	for _, value := range indices {
+		largest = max(largest, value)
+	}
+	if largest <= math.MaxUint16 {
+		data := make([]byte, 0, 2*len(indices))
+		for _, value := range indices {
+			data = binary.LittleEndian.AppendUint16(data, uint16(value))
+		}
+		view := output.view(data, targetIndices)
+		return output.accessor(accessorEntry{BufferView: view, ComponentType: componentUnsignedShort, Count: len(indices), Type: "SCALAR"})
+	}
+	data := make([]byte, 0, 4*len(indices))
+	for _, value := range indices {
+		data = binary.LittleEndian.AppendUint32(data, value)
 	}
 	view := output.view(data, targetIndices)
 	return output.accessor(accessorEntry{BufferView: view, ComponentType: componentUnsignedInt, Count: len(indices), Type: "SCALAR"})

@@ -88,7 +88,8 @@ func describe(result *build.Result) string {
 		roles = append(roles, fmt.Sprintf("%s %d", role, count))
 	}
 	sort.Strings(roles)
-	return fmt.Sprintf("%d pieces, %d triangles; %v", len(result.Pieces), triangles, roles)
+	return fmt.Sprintf("%d pieces, %d triangles; %v; %d blocks, %d facing a street, %d shared walls",
+		len(result.Pieces), triangles, roles, result.Blocks, result.Facing, result.Shared)
 }
 
 func printWarnings(warnings []string, limit int) {

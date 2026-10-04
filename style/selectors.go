@@ -78,3 +78,8 @@ func numberOf(value any) (float64, bool) {
 	}
 	return 0, false
 }
+
+// Selects tells whether a feature of a kind with some properties matches a selector.
+func Selects(when map[string]any, kind string, properties map[string]any) bool {
+	return selects(when, kind, properties)
+}

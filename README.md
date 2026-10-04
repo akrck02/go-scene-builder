@@ -9,10 +9,11 @@ map and the rules do.
 map + relief → 1 basic blocks → 2 relations → 3 style rules → 4 decoration → pieces → .glb / live scene
 ```
 
-Done so far (phase 1): reading maps, reliefs and rules; the basic blocks (terrain, draped ground,
-level water, volumes with a flat top, lines with thickness); the `.glb` writer; `build-scene`.
-Next: real roofs and the relations between blocks (phase 2), gates and bridges (phase 3), and use
-from go-simulator for live scenes (phase 4).
+Done so far: reading maps, reliefs and rules; the basic blocks (terrain, draped ground, level
+water, volumes, lines with thickness); the relations between blocks (the side that faces a street,
+the walls neighbours share); recipes for walls and roofs (flat, gable, hip); a quantised `.glb`
+writer; `build-scene`. Next: gates and bridges (phase 3) and use from go-simulator for live scenes
+(phase 4).
 
 ## Run
 
@@ -43,6 +44,9 @@ ranges. Values are numbers, `#rrggbb` colours or arithmetic over the feature's n
 units: m
 environment: {sun: [235, 38]}          # azimuth and elevation in degrees; water_level adds a sea
 terrain: {color: "#6b7f47", bands: [{above: 350, color: "#9e9e99", blend: 30}]}
+relations:
+  facing: {when: {kind: street}, reach: 20}   # which side of a block looks onto a street
+  rows: {tolerance: 0.4}                       # walls closer than this are shared (not drawn)
 rules:
   - when: {kind: street}
     shape: {role: ground, width: "width * 1000", lift: 0.12}
@@ -52,7 +56,7 @@ rules:
   - when: {kind: building}
     shape: {role: volume, height: "3.5 + (floors - 1) * 3"}
     walls: {color: "#e9dfc9"}
-    roof: {color: "#a4553a"}
+    roof: {recipe: gable, pitch: 38, ridge: long, eaves: 0.5, color: "#a4553a"}
   - when: {kind: building, use: [shop, workshop], floors: {min: 3}}
     roof: {color: "#8e4631"}
   - when: {kind: wall}
@@ -61,8 +65,14 @@ rules:
 
 Roles: `ground` (polygons, or lines widened by `width`, draped `lift` metres over the relief),
 `water` (level sheet `above_bed` metres over the bed under the feature's own line), `volume`
-(prism of `height` from the lowest ground under its corners, sunk `sink`), `line` (prisms of
+(a block: walls from `sink` metres under the lowest ground under its corners up to `height`, where
+the roof starts), `line` (prisms of
 `thickness` and `height` in pieces of `segment` metres), `point` and `none` (nothing yet).
+
+Volumes are decorated by recipes: `walls` (colour; shared walls are left out) and `roof`: `recipe`
+`flat`, `gable` or `hip`, with `pitch` (degrees), `eaves` (overhang, metres), `color` and `ridge`:
+`long` or `short` (the side of the footprint's rectangle the ridge follows), `along_street` or
+`across_street` (relative to the side that faces a street).
 
 ## Output
 
