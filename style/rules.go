@@ -16,6 +16,7 @@ package style
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -26,7 +27,9 @@ type Rules struct {
 	Environment map[string]any `yaml:"environment"`
 	Terrain     map[string]any `yaml:"terrain"`
 	Relations   map[string]any `yaml:"relations"`
-	Chunk       float64        `yaml:"chunk"` // km: side of the squares pieces are grouped in (default 0.5)
+	Chunk       float64        `yaml:"chunk"`  // km: side of the squares pieces are grouped in (default 0.5)
+	Models      []string       `yaml:"models"` // model library files, relative to the style file
+	Directory   string         `yaml:"-"`      // folder of the style file
 	Rules       []Rule         `yaml:"rules"`
 }
 
@@ -54,7 +57,23 @@ func Load(path string) (*Rules, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Parse(content)
+	rules, err := Parse(content)
+	if err == nil {
+		rules.Directory = filepath.Dir(path)
+	}
+	return rules, err
+}
+
+// ModelFiles are the model library files, as paths.
+func (rules *Rules) ModelFiles() []string {
+	files := make([]string, len(rules.Models))
+	for index, file := range rules.Models {
+		files[index] = file
+		if !filepath.IsAbs(file) {
+			files[index] = filepath.Join(rules.Directory, file)
+		}
+	}
+	return files
 }
 
 // Parse reads style rules from YAML text.

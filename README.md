@@ -111,3 +111,12 @@ walkable (`ground`). The scene extras carry the sun, fog, an optional sea and `v
 `flower_boxes` (with `flowers`, some `glowing`), `emblem` (a six-petal flower above the door) and
 `lamp`; see `recipes/facade.go`. On ground features, `decorate: [{recipe: plants, …}]` sows shrubs,
 trees and flower beds, never on a volume; see `build/plants.go`.
+
+### Models
+
+Small models (flowers, lamps, benches…) live in libraries named by the style (`models: [models.yaml]`)
+and are drawn as instances (one mesh, many copies). A model is made of parts (box, cylinder, cone,
+blob, petals) with colours and materials, or read from a binary glTF file made elsewhere
+(`file: lamp.glb`, in metres, y up); see `models/models.go`. Place them on point features
+(`shape: {role: model, model: lamp, scale: [0.9, 1.1], turn: random}`) or sow them on ground
+features (`decorate: [{recipe: scatter, density: 0.01, models: {lily: 3, lamp: 1}, group: 8}]`).

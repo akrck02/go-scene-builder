@@ -9,9 +9,15 @@ import (
 	"github.com/akrck02/go-scene-builder/block"
 	"github.com/akrck02/go-scene-builder/mapdata"
 	"github.com/akrck02/go-scene-builder/mesh"
+	"github.com/akrck02/go-scene-builder/models"
 	"github.com/akrck02/go-scene-builder/style"
 )
 
+// The scatter recipe does the same with models of the library instead of plants, chosen by weight:
+//
+//	decorate: [{recipe: scatter, density: 0.05, models: {lily: 3, poppy: 1}, scale: [0.8, 1.2], turn: random,
+//	            group: 8, spread: 0.5}]     # optional: copies in groups, like flower beds
+//
 // The plants recipe sows ground features with shrubs, trees and flower beds, never on a block or
 // closer to it than "clear" metres. In the style of a ground feature:
 //
@@ -45,7 +51,8 @@ func (builder *featureBuilder) plantingsOf(feature *mapdata.Feature, resolved st
 	decorations, _ := resolved["decorate"].([]any)
 	for _, entry := range decorations {
 		settings := style.Style(asMap(entry))
-		if settings.Text("recipe", "") == "plants" && len(feature.Polygons) > 0 {
+		recipe := settings.Text("recipe", "")
+		if (recipe == "plants" || recipe == "scatter") && len(feature.Polygons) > 0 {
 			builder.output.plantings = append(builder.output.plantings, planting{feature, settings, feature.Polygons})
 		}
 	}
@@ -93,6 +100,14 @@ func (gardener *gardener) sow(current planting) {
 		return
 	}
 	random := rand.New(rand.NewPCG(style.Seed(current.feature.Properties, "plants"), 7))
+	scatter := current.settings.Text("recipe", "") == "scatter"
+	chosen, weights, missing := weightedModels(current.settings, gardener.input.Models)
+	for _, name := range missing {
+		gardener.output.warnings = append(gardener.output.warnings, current.feature.Identifier+": no model "+name)
+	}
+	if scatter && len(chosen) == 0 {
+		return
+	}
 	for _, polygon := range current.polygons {
 		area := math.Abs(polygon.Exterior.SignedArea()) * 1e6
 		count := int(area*values["density"] + random.Float64())
@@ -101,8 +116,32 @@ func (gardener *gardener) sow(current planting) {
 			if !found || gardener.occupied.near(point, values["clear"]/1000) {
 				continue
 			}
-			gardener.plant(point, current.settings, current.feature.Properties, random, values)
+			if scatter {
+				gardener.place(point, pickWeighted(chosen, weights, random), current.settings, current.feature.Properties, random)
+			} else {
+				gardener.plant(point, current.settings, current.feature.Properties, random, values)
+			}
 		}
+	}
+}
+
+// place puts copies of a model on the ground (the scatter recipe: models instead of plants): one,
+// or a group ("group" copies within "spread" metres, like a flower bed).
+func (gardener *gardener) place(point mapdata.Point, model *models.Model, settings style.Style, properties map[string]any, random *rand.Rand) {
+	group, _ := settings.Number("group", properties, 1)
+	spread, _ := settings.Number("spread", properties, 0.5)
+	for copy := range max(1, int(group)) {
+		spot := point
+		if copy > 0 {
+			angle, reach := random.Float64()*2*math.Pi, spread*math.Sqrt(random.Float64())
+			spot = mapdata.Point{point[0] + reach*math.Cos(angle)/1000, point[1] + reach*math.Sin(angle)/1000}
+		}
+		scale, turn, err := sizeAndTurn(settings, properties, random)
+		if err != nil {
+			return
+		}
+		position := gardener.frame.Scene(spot[0], spot[1], gardener.height(spot[0], spot[1]))
+		gardener.output.copiesOf(model, spot[0], spot[1]).Add(position, turn, scale, [4]float32{1, 1, 1, 1})
 	}
 }
 

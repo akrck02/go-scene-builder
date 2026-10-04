@@ -14,6 +14,7 @@ import (
 	"github.com/akrck02/go-scene-builder/block"
 	"github.com/akrck02/go-scene-builder/mapdata"
 	"github.com/akrck02/go-scene-builder/mesh"
+	"github.com/akrck02/go-scene-builder/models"
 	"github.com/akrck02/go-scene-builder/recipes"
 	"github.com/akrck02/go-scene-builder/relations"
 	"github.com/akrck02/go-scene-builder/relief"
@@ -45,6 +46,8 @@ type Input struct {
 	// Context are features that take part in the relations (streets a house faces, roads that open
 	// gates) without being built.
 	Context []*mapdata.Feature
+	// Models are the models the "model" role and the scatter recipe place.
+	Models *models.Library
 }
 
 // HeightSource gives the height of the ground in metres at a map position (km east and north).
@@ -68,13 +71,14 @@ func (input Input) related() []*mapdata.Feature {
 
 // Result is the pieces of the scene and what happened.
 type Result struct {
-	Pieces   []*mesh.Piece
-	Frame    mesh.Frame
-	Roles    map[string]int // features per role
-	Blocks   int            // volumes decorated by the recipes
-	Facing   int            // blocks with a side onto a street
-	Shared   int            // walls a neighbour leans against
-	Warnings []string
+	Pieces    []*mesh.Piece
+	Instances []*mesh.Instances // models placed many times
+	Frame     mesh.Frame
+	Roles     map[string]int // features per role
+	Blocks    int            // volumes decorated by the recipes
+	Facing    int            // blocks with a side onto a street
+	Shared    int            // walls a neighbour leans against
+	Warnings  []string
 }
 
 // Build runs stage 1 for every feature, spread over the processor's cores.
@@ -173,6 +177,7 @@ func frameOf(input Input) mesh.Frame {
 // workerOutput is what one worker built: pieces by material and chunk, roles and warnings.
 type workerOutput struct {
 	chunk     float64
+	instances map[pieceKey]*mesh.Instances
 	blocks    []*block.Block
 	plantings []planting
 	pieces    map[pieceKey]*mesh.Piece
@@ -186,7 +191,7 @@ type pieceKey struct {
 }
 
 func newWorkerOutput(chunk float64) *workerOutput {
-	return &workerOutput{pieces: map[pieceKey]*mesh.Piece{}, roles: map[string]int{}, chunk: chunk}
+	return &workerOutput{pieces: map[pieceKey]*mesh.Piece{}, instances: map[pieceKey]*mesh.Instances{}, roles: map[string]int{}, chunk: chunk}
 }
 
 // piece returns the piece of a material for the chunk a map position falls in.
@@ -200,15 +205,34 @@ func (output *workerOutput) piece(material mesh.Material, east, north float64) *
 	return piece
 }
 
+// copiesOf returns the instances of a model for the chunk a map position falls in.
+func (output *workerOutput) copiesOf(model *models.Model, east, north float64) *mesh.Instances {
+	key := pieceKey{model.Name, int(math.Floor(east / output.chunk)), int(math.Floor(north / output.chunk))}
+	if copies, known := output.instances[key]; known {
+		return copies
+	}
+	copies := &mesh.Instances{Name: fmt.Sprintf("%s %d,%d", model.Name, key.column, key.row), Model: model.Pieces}
+	output.instances[key] = copies
+	return copies
+}
+
 // gather merges the workers' pieces of the same material and chunk, in a stable order.
 func (result *Result) gather(outputs []*workerOutput) {
 	merged := map[pieceKey]*mesh.Piece{}
+	mergedInstances := map[pieceKey]*mesh.Instances{}
 	for _, output := range outputs {
 		for key, piece := range output.pieces {
 			if existing, known := merged[key]; known {
 				existing.Append(piece)
 			} else {
 				merged[key] = piece
+			}
+		}
+		for key, copies := range output.instances {
+			if existing, known := mergedInstances[key]; known {
+				existing.Append(copies)
+			} else {
+				mergedInstances[key] = copies
 			}
 		}
 		for role, count := range output.roles {
@@ -231,6 +255,16 @@ func (result *Result) gather(outputs []*workerOutput) {
 	})
 	for _, key := range keys {
 		result.Pieces = append(result.Pieces, merged[key])
+	}
+	instanceKeys := make([]pieceKey, 0, len(mergedInstances))
+	for key := range mergedInstances {
+		instanceKeys = append(instanceKeys, key)
+	}
+	sort.Slice(instanceKeys, func(first, second int) bool {
+		return fmt.Sprint(instanceKeys[first]) < fmt.Sprint(instanceKeys[second])
+	})
+	for _, key := range instanceKeys {
+		result.Instances = append(result.Instances, mergedInstances[key])
 	}
 	sort.Strings(result.Warnings)
 }
@@ -270,6 +304,8 @@ func (builder *featureBuilder) build(feature *mapdata.Feature) {
 		err = builder.line(feature, resolved, shape)
 	case "point":
 		err = builder.point(feature, resolved, shape)
+	case "model":
+		err = builder.model(feature, shape)
 	case "none":
 	default:
 		err = fmt.Errorf("unknown role %q", role)

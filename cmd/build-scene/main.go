@@ -15,6 +15,7 @@ import (
 	"github.com/akrck02/go-scene-builder/build"
 	"github.com/akrck02/go-scene-builder/gltf"
 	"github.com/akrck02/go-scene-builder/mapdata"
+	"github.com/akrck02/go-scene-builder/models"
 	"github.com/akrck02/go-scene-builder/relief"
 	"github.com/akrck02/go-scene-builder/style"
 )
@@ -74,7 +75,7 @@ func run(mapPath, reliefPath, stylePath, output, title string, showWarnings int)
 	if title != "" {
 		extras["title"] = title
 	}
-	size, err := gltf.Write(output, result.Pieces, extras)
+	size, err := gltf.Write(output, result.Pieces, result.Instances, extras)
 	if err != nil {
 		return err
 	}
@@ -93,6 +94,9 @@ func readInput(mapPath, reliefPath, stylePath string) (build.Input, error) {
 	if input.Rules, err = style.Load(stylePath); err != nil {
 		return input, err
 	}
+	if input.Models, err = models.Load(input.Rules.ModelFiles()...); err != nil {
+		return input, err
+	}
 	if reliefPath != "" {
 		input.Relief, err = relief.Load(reliefPath)
 	}
@@ -109,8 +113,12 @@ func describe(result *build.Result) string {
 		roles = append(roles, fmt.Sprintf("%s %d", role, count))
 	}
 	sort.Strings(roles)
-	return fmt.Sprintf("%d pieces, %d triangles; %v; %d blocks, %d facing a street, %d shared walls",
-		len(result.Pieces), triangles, roles, result.Blocks, result.Facing, result.Shared)
+	copies := 0
+	for _, instances := range result.Instances {
+		copies += instances.Count()
+	}
+	return fmt.Sprintf("%d pieces, %d triangles; %v; %d blocks, %d facing a street, %d shared walls; %d model copies",
+		len(result.Pieces), triangles, roles, result.Blocks, result.Facing, result.Shared, copies)
 }
 
 func printWarnings(warnings []string, limit int) {

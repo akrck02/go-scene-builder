@@ -22,6 +22,7 @@ const (
 	componentShort         = 5122
 	componentUnsignedShort = 5123
 	componentUnsignedInt   = 5125
+	componentFloat         = 5126
 	largestShort           = 32767
 	targetVertices         = 34962
 	targetIndices          = 34963
@@ -49,8 +50,9 @@ type sceneEntry struct {
 type nodeEntry struct {
 	Name        string         `json:"name"`
 	Mesh        int            `json:"mesh"`
-	Translation []float64      `json:"translation"`
-	Scale       []float64      `json:"scale"`
+	Translation []float64      `json:"translation,omitempty"`
+	Scale       []float64      `json:"scale,omitempty"`
+	Extensions  map[string]any `json:"extensions,omitempty"`
 	Extras      map[string]any `json:"extras,omitempty"`
 }
 
@@ -103,17 +105,18 @@ type writer struct {
 	materials map[string]int
 }
 
-// Write saves the pieces as a .glb, with the given scene extras (for example {"environment": …}).
-func Write(path string, pieces []*mesh.Piece, sceneExtras map[string]any) (int, error) {
-	content, err := Encode(pieces, sceneExtras)
+// Write saves the pieces and instanced models as a .glb, with the given scene extras (for example
+// {"environment": …}).
+func Write(path string, pieces []*mesh.Piece, instances []*mesh.Instances, sceneExtras map[string]any) (int, error) {
+	content, err := Encode(pieces, instances, sceneExtras)
 	if err != nil {
 		return 0, err
 	}
 	return len(content), os.WriteFile(path, content, 0o644)
 }
 
-// Encode returns the .glb bytes of the pieces.
-func Encode(pieces []*mesh.Piece, sceneExtras map[string]any) ([]byte, error) {
+// Encode returns the .glb bytes of the pieces and instanced models.
+func Encode(pieces []*mesh.Piece, instances []*mesh.Instances, sceneExtras map[string]any) ([]byte, error) {
 	output := &writer{materials: map[string]int{}}
 	output.document.Asset = map[string]string{"version": "2.0", "generator": "go-scene-builder"}
 	output.document.Used = []string{"KHR_mesh_quantization"}
@@ -123,6 +126,14 @@ func Encode(pieces []*mesh.Piece, sceneExtras map[string]any) ([]byte, error) {
 		if piece.TriangleCount() > 0 {
 			output.addPiece(piece)
 		}
+	}
+	for _, copies := range instances {
+		if copies.Count() > 0 {
+			output.addInstances(copies)
+		}
+	}
+	if len(instances) > 0 {
+		output.document.Used = append(output.document.Used, "EXT_mesh_gpu_instancing")
 	}
 	output.document.Buffers = []bufferEntry{{ByteLength: output.binary.Len()}}
 	text, err := json.Marshal(output.document)
@@ -148,6 +159,54 @@ func (output *writer) addPiece(piece *mesh.Piece) {
 	output.document.Nodes = append(output.document.Nodes, nodeEntry{Name: piece.Name, Mesh: len(output.document.Meshes) - 1,
 		Translation: centre[:], Scale: []float64{scale, scale, scale}, Extras: extras})
 	output.document.Scenes[0].Nodes = append(output.document.Scenes[0].Nodes, len(output.document.Nodes)-1)
+}
+
+// addInstances writes a model once (a mesh per piece, positions as floats: the instance transforms
+// must not be scaled by a node) and a node per piece that repeats it (EXT_mesh_gpu_instancing).
+func (output *writer) addInstances(copies *mesh.Instances) {
+	count := copies.Count()
+	rotations := make([]float32, 0, 4*count)
+	scales := make([]float32, 0, 3*count)
+	for index := range count {
+		half := float64(copies.Turns[index]) / 2
+		rotations = append(rotations, 0, float32(math.Sin(half)), 0, float32(math.Cos(half)))
+		scale := copies.Scales[index]
+		scales = append(scales, scale, scale, scale)
+	}
+	attributes := map[string]any{
+		"TRANSLATION": output.floatAccessor(copies.Positions, "VEC3", false),
+		"ROTATION":    output.floatAccessor(rotations, "VEC4", false),
+		"SCALE":       output.floatAccessor(scales, "VEC3", false),
+		"_COLOR":      output.floatAccessor(copies.Tints, "VEC4", false),
+	}
+	for _, piece := range copies.Model {
+		if piece.TriangleCount() == 0 {
+			continue
+		}
+		primitive := primitiveEntry{Attributes: map[string]int{
+			"POSITION": output.floatAccessor(piece.Positions, "VEC3", true),
+			"NORMAL":   output.normalAccessor(piece.Normals),
+			"COLOR_0":  output.colorAccessor(piece.Colors),
+		}, Indices: output.indexAccessor(piece.Indices), Material: output.material(piece.Material)}
+		output.document.Meshes = append(output.document.Meshes, meshEntry{Name: copies.Name, Primitives: []primitiveEntry{primitive}})
+		output.document.Nodes = append(output.document.Nodes, nodeEntry{Name: copies.Name, Mesh: len(output.document.Meshes) - 1,
+			Extensions: map[string]any{"EXT_mesh_gpu_instancing": map[string]any{"attributes": attributes}}})
+		output.document.Scenes[0].Nodes = append(output.document.Scenes[0].Nodes, len(output.document.Nodes)-1)
+	}
+}
+
+// floatAccessor stores float32 values; with bounds for positions.
+func (output *writer) floatAccessor(values []float32, kind string, withBounds bool) int {
+	data := make([]byte, 0, 4*len(values))
+	for _, value := range values {
+		data = binary.LittleEndian.AppendUint32(data, math.Float32bits(value))
+	}
+	components := map[string]int{"VEC3": 3, "VEC4": 4}[kind]
+	entry := accessorEntry{BufferView: output.view(data, 0), ComponentType: componentFloat, Count: len(values) / components, Type: kind}
+	if withBounds {
+		entry.Minimum, entry.Maximum = boundsOf(values)
+	}
+	return output.accessor(entry)
 }
 
 func (output *writer) material(material mesh.Material) int {
