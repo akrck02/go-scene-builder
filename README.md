@@ -9,11 +9,16 @@ map and the rules do.
 map + relief → 1 basic blocks → 2 relations → 3 style rules → 4 decoration → pieces → .glb / live scene
 ```
 
-Done so far (phases 1 to 3): reading maps, reliefs and rules; the basic blocks (terrain, draped
+Done so far (phases 1 to 4): reading maps, reliefs and rules; the basic blocks (terrain, draped
 ground, level water, volumes, lines, points); the relations between blocks (the side that faces a
 street, the walls neighbours share, the gaps where lines cross); recipes for walls, roofs (flat,
-gable, hip) and gate towers; a quantised `.glb` writer; `build-scene`. Next: use from go-simulator
-for live scenes (phase 4), then windows, chimneys and trees (phase 5).
+gable, hip) and gate towers; a quantised `.glb` writer; `build-scene`; and use as a library from
+go-simulator, which draws live simulations with it (`scene_style` in its rules files). Next:
+windows, chimneys and trees (phase 5), and levels of detail for large terrains.
+
+As a library, `build.Build` also takes `Heights` (any source of ground heights, for a scene whose
+terrain exists already), `Detail` (the longest side of draped triangles without a relief) and
+`Context` (features that take part in the relations without being built).
 
 ## Run
 

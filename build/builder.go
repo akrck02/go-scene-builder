@@ -35,8 +35,35 @@ var (
 // Input is what a build needs.
 type Input struct {
 	Map    *mapdata.Map
-	Relief *relief.Relief // nil = flat ground
+	Relief *relief.Relief // the terrain to build, and the ground heights; nil = no terrain
 	Rules  *style.Rules
+	// Heights gives the ground height (metres) instead of the relief, for scenes whose terrain
+	// exists already (a live scene); nil = the relief's, or flat.
+	Heights HeightSource
+	// Detail is the longest side (km) of a draped triangle when there is no relief; 0 = no limit.
+	Detail float64
+	// Context are features that take part in the relations (streets a house faces, roads that open
+	// gates) without being built.
+	Context []*mapdata.Feature
+}
+
+// HeightSource gives the height of the ground in metres at a map position (km east and north).
+type HeightSource interface {
+	Height(east, north float64) float64
+}
+
+// HeightFunction turns a function into a HeightSource.
+type HeightFunction func(east, north float64) float64
+
+// Height calls the function.
+func (function HeightFunction) Height(east, north float64) float64 { return function(east, north) }
+
+// related are the features the relations look at: the map's and the context's.
+func (input Input) related() []*mapdata.Feature {
+	if len(input.Context) == 0 {
+		return input.Map.Features
+	}
+	return append(append([]*mapdata.Feature{}, input.Map.Features...), input.Context...)
 }
 
 // Result is the pieces of the scene and what happened.
@@ -56,7 +83,7 @@ func Build(input Input) *Result {
 	if input.Relief != nil {
 		result.Pieces = append(result.Pieces, terrainPieces(input.Relief, input.Rules.Terrain, result.Frame)...)
 	}
-	openings := relations.FindOpenings(input.Map.Features, func(feature *mapdata.Feature) map[string]any {
+	openings := relations.FindOpenings(input.related(), func(feature *mapdata.Feature) map[string]any {
 		resolved, _ := input.Rules.Resolve(feature.Kind, feature.Properties)
 		where, _ := resolved.Section("openings")["where"].(map[string]any)
 		return where
@@ -84,7 +111,7 @@ func Build(input Input) *Result {
 	for _, output := range outputs {
 		blocks = append(blocks, output.blocks...)
 	}
-	relations.Compute(blocks, input.Map.Features, input.Rules.Relations)
+	relations.Compute(blocks, input.related(), input.Rules.Relations)
 	result.count(blocks)
 	outputs = append(outputs, decorate(blocks, result.Frame, workers, chunk)...)
 	result.gather(outputs)
@@ -249,12 +276,18 @@ func (builder *featureBuilder) build(feature *mapdata.Feature) {
 
 // height is the relief height in metres at a map position.
 func (builder *featureBuilder) height(east, north float64) float64 {
+	if builder.input.Heights != nil {
+		return builder.input.Heights.Height(east, north)
+	}
 	return builder.input.Relief.Height(east, north)
 }
 
 // largestSide is the longest side a draped triangle may have: about a relief cell.
 func (builder *featureBuilder) largestSide() float64 {
 	if builder.input.Relief == nil {
+		if builder.input.Detail > 0 {
+			return builder.input.Detail
+		}
 		return math.Inf(1)
 	}
 	return math.Max(0.012, builder.input.Relief.Cell)

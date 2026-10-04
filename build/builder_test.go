@@ -1,6 +1,7 @@
 package build
 
 import (
+	"math"
 	"testing"
 
 	"github.com/akrck02/go-scene-builder/mapdata"
@@ -105,6 +106,44 @@ func TestNothingOutsideTheRelief(test *testing.T) {
 		}
 		if piece.Material.Name == "solid" {
 			test.Error("the house outside the relief should be skipped")
+		}
+	}
+}
+
+func TestHeightsAndContext(test *testing.T) {
+	rules, err := style.Parse([]byte(`
+units: m
+relations: {facing: {when: {kind: street}, reach: 20}}
+rules:
+  - when: {kind: building}
+    shape: {role: volume, height: 3, sink: 0}
+  - when: {kind: parcel}
+    shape: {role: ground, lift: 0}
+`))
+	if err != nil {
+		test.Fatal(err)
+	}
+	house := &mapdata.Feature{Identifier: "house", Kind: "building", Polygons: []mapdata.Polygon{square(0.01)}}
+	garden := &mapdata.Feature{Identifier: "garden", Kind: "parcel", Polygons: []mapdata.Polygon{square(0.1)}}
+	street := &mapdata.Feature{Identifier: "street", Kind: "street", Lines: [][]mapdata.Point{{{-0.05, -0.005}, {0.05, -0.005}}}}
+	slope := HeightFunction(func(east, north float64) float64 { return 100 * east })
+	result := Build(Input{Map: &mapdata.Map{Features: []*mapdata.Feature{house, garden}}, Rules: rules, Heights: slope,
+		Detail: 0.0125, Context: []*mapdata.Feature{street}})
+	if result.Facing != 1 {
+		test.Errorf("the house should face the street given as context: %d facing", result.Facing)
+	}
+	for _, piece := range result.Pieces {
+		if piece.Material.Name != "ground" {
+			continue
+		}
+		if piece.TriangleCount() < 2*8*8 {
+			test.Errorf("a 100 m garden cut to 12.5 m sides should have at least 128 triangles, got %d", piece.TriangleCount())
+		}
+		for index := 0; index < len(piece.Positions); index += 3 {
+			east, height := float64(piece.Positions[index]), float64(piece.Positions[index+1])
+			if math.Abs(height-east*100/1000) > 1e-6 {
+				test.Fatalf("ground at %v km east should be %v km high, is %v", east, east/10, height)
+			}
 		}
 	}
 }
