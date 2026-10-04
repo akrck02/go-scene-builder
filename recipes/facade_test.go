@@ -116,3 +116,28 @@ func TestChimneyRisesAboveTheRidge(test *testing.T) {
 		test.Errorf("the chimney tops out at %.2f m, the ridge is at %.2f m", top*1000, ridge)
 	}
 }
+
+func TestIrregularHouseKeepsItsWalls(test *testing.T) {
+	// a pentagon: far from its rectangle, so walls stay on it and a tent roof covers it
+	ring := mapdata.Ring{{0, 0}, {0.01, 0}, {0.012, 0.005}, {0.006, 0.009}, {0, 0.006}}
+	current := &block.Block{Feature: &mapdata.Feature{Identifier: "house", Properties: map[string]any{"id": "house"}},
+		Polygon: mapdata.Polygon{Exterior: ring}, Ground: 0, Bottom: -1, Eaves: 6,
+		Style: style.Style{"roof": map[string]any{"recipe": "gable", "pitch": 40.0, "eaves": 0.0}}}
+	pieces := map[string]*mesh.Piece{}
+	pieceFor := func(material mesh.Material) *mesh.Piece {
+		if pieces[material.Name] == nil {
+			pieces[material.Name] = &mesh.Piece{Material: material}
+		}
+		return pieces[material.Name]
+	}
+	if err := (&Decorator{Context: geos.NewContext()}).Decorate(current, pieceFor); err != nil {
+		test.Fatal(err)
+	}
+	walls := pieces["walls"]
+	if walls == nil || walls.TriangleCount() != 2*len(ring) {
+		test.Fatalf("one wall per side of the footprint expected, got %d triangles", walls.TriangleCount())
+	}
+	if roofs := pieces["roofs"]; roofs == nil || roofs.TriangleCount() != len(ring) {
+		test.Errorf("a tent roof has a slope per side")
+	}
+}

@@ -61,6 +61,8 @@ func (builder *featureBuilder) plantingsOf(feature *mapdata.Feature, resolved st
 // sow plants every planting, spread over the processor's cores.
 func sow(plantings []planting, blocks []*block.Block, input Input, frame mesh.Frame, chunk float64) []*workerOutput {
 	occupied := newFootprintIndex(blocks)
+	keep := newKeepOut(input)
+	byFeature := plantingsByFeature(plantings) // a feature's decorations share its room, in style order
 	workers := runtime.NumCPU()
 	outputs := make([]*workerOutput, workers)
 	var group sync.WaitGroup
@@ -69,9 +71,12 @@ func sow(plantings []planting, blocks []*block.Block, input Input, frame mesh.Fr
 		group.Add(1)
 		go func() {
 			defer group.Done()
-			gardener := &gardener{input: input, frame: frame, occupied: occupied, output: outputs[worker]}
-			for index := worker; index < len(plantings); index += workers {
-				gardener.sow(plantings[index])
+			gardener := &gardener{input: input, frame: frame, occupied: occupied, keep: keep, output: outputs[worker]}
+			for index := worker; index < len(byFeature); index += workers {
+				taken := newDiscIndex()
+				for _, current := range byFeature[index] {
+					gardener.sow(current, taken)
+				}
 			}
 		}()
 	}
@@ -83,7 +88,24 @@ type gardener struct {
 	input    Input
 	frame    mesh.Frame
 	occupied *footprintIndex
+	keep     *keepOut
 	output   *workerOutput
+	radii    map[*models.Model]float64
+}
+
+// plantingsByFeature groups the plantings of each feature, keeping the map's and the style's order.
+func plantingsByFeature(plantings []planting) [][]planting {
+	var groups [][]planting
+	position := map[*mapdata.Feature]int{}
+	for _, current := range plantings {
+		if index, known := position[current.feature]; known {
+			groups[index] = append(groups[index], current)
+			continue
+		}
+		position[current.feature] = len(groups)
+		groups = append(groups, []planting{current})
+	}
+	return groups
 }
 
 func (gardener *gardener) height(east, north float64) float64 {
@@ -93,7 +115,7 @@ func (gardener *gardener) height(east, north float64) float64 {
 	return gardener.input.Relief.Height(east, north)
 }
 
-func (gardener *gardener) sow(current planting) {
+func (gardener *gardener) sow(current planting, taken *discIndex) {
 	values, err := numbers(current.settings, current.feature.Properties, map[string]float64{"density": 0.01, "trees": 0.15, "beds": 0.25, "clear": 1.5})
 	if err != nil {
 		gardener.output.warnings = append(gardener.output.warnings, current.feature.Identifier+": "+err.Error())
@@ -108,17 +130,18 @@ func (gardener *gardener) sow(current planting) {
 	if scatter && len(chosen) == 0 {
 		return
 	}
+	rules := rulesOf(current.settings, current.feature.Properties)
 	for _, polygon := range current.polygons {
 		area := math.Abs(polygon.Exterior.SignedArea()) * 1e6
 		count := int(area*values["density"] + random.Float64())
 		for range count {
 			point, found := pointInside(polygon, random)
-			if !found || gardener.occupied.near(point, values["clear"]/1000) {
+			if !found {
 				continue
 			}
 			if scatter {
-				gardener.place(point, pickWeighted(chosen, weights, random), current.settings, current.feature.Properties, random)
-			} else {
+				gardener.place(point, pickWeighted(chosen, weights, random), current.settings, current.feature.Properties, random, rules, polygon, taken)
+			} else if gardener.allowed(point, plantRadius, rules, polygon, taken) {
 				gardener.plant(point, current.settings, current.feature.Properties, random, values)
 			}
 		}
@@ -127,7 +150,8 @@ func (gardener *gardener) sow(current planting) {
 
 // place puts copies of a model on the ground (the scatter recipe: models instead of plants): one,
 // or a group ("group" copies within "spread" metres, like a flower bed).
-func (gardener *gardener) place(point mapdata.Point, model *models.Model, settings style.Style, properties map[string]any, random *rand.Rand) {
+func (gardener *gardener) place(point mapdata.Point, model *models.Model, settings style.Style, properties map[string]any, random *rand.Rand,
+	rules placementRules, polygon mapdata.Polygon, taken *discIndex) {
 	group, _ := settings.Number("group", properties, 1)
 	spread, _ := settings.Number("spread", properties, 0.5)
 	for copy := range max(1, int(group)) {
@@ -140,10 +164,32 @@ func (gardener *gardener) place(point mapdata.Point, model *models.Model, settin
 		if err != nil {
 			return
 		}
+		if !gardener.allowed(spot, gardener.radiusOf(model)*scale, rules, polygon, taken) {
+			continue
+		}
 		position := gardener.frame.Scene(spot[0], spot[1], gardener.height(spot[0], spot[1]))
 		chosen, factor, tint := model.Copy(random)
 		gardener.output.copiesOf(chosen, spot[0], spot[1]).Add(position, turn, scale*factor, tint)
 	}
+}
+
+// plantRadius is the room a plant of the plants recipe takes (km).
+const plantRadius = 0.0008
+
+// radiusOf is a model's reach across the ground, measured once.
+func (gardener *gardener) radiusOf(model *models.Model) float64 {
+	if gardener.radii == nil {
+		gardener.radii = map[*models.Model]float64{}
+	}
+	radius, known := gardener.radii[model]
+	if !known {
+		radius = radiusOf(model)
+		for _, variant := range model.Variants {
+			radius = math.Max(radius, radiusOf(variant))
+		}
+		gardener.radii[model] = radius
+	}
+	return radius
 }
 
 func (gardener *gardener) plant(point mapdata.Point, settings style.Style, properties map[string]any, random *rand.Rand, values map[string]float64) {

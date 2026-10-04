@@ -86,7 +86,7 @@ func (gardener *gardener) sowCell(layer *relief.Relief, row, column, recipe int,
 			continue
 		}
 		if scatter {
-			gardener.place(point, pickWeighted(chosen, weights, random), settings, nil, random)
+			gardener.place(point, pickWeighted(chosen, weights, random), settings, nil, random, placementRules{}, mapdata.Polygon{}, nil)
 		} else {
 			gardener.plant(point, settings, nil, random, values)
 		}

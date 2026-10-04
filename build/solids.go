@@ -21,16 +21,30 @@ func (builder *featureBuilder) volume(feature *mapdata.Feature, resolved, shape 
 	if err != nil {
 		return err
 	}
+	seat := shape.Text("seat", "highest")
 	for _, polygon := range feature.Polygons {
 		if !builder.coversAll(polygon.Exterior) {
 			continue
 		}
-		base := builder.lowestOf(polygon.Exterior)
+		lowest, highest := builder.lowestOf(polygon.Exterior), builder.highestOf(polygon.Exterior)
+		floor := highest // on a slope the house stands on a stone base downhill instead of sinking uphill
+		if seat == "lowest" {
+			floor = lowest
+		}
 		polygon.Exterior = polygon.Exterior.Anticlockwise()
 		builder.output.blocks = append(builder.output.blocks,
-			&block.Block{Feature: feature, Style: resolved, Polygon: polygon, Ground: base, Bottom: base - sink, Eaves: base + height})
+			&block.Block{Feature: feature, Style: resolved, Polygon: polygon, Ground: floor, Bottom: lowest - sink, Eaves: floor + height})
 	}
 	return nil
+}
+
+// highestOf is the highest ground under the corners of a ring.
+func (builder *featureBuilder) highestOf(points mapdata.Ring) float64 {
+	highest := math.Inf(-1)
+	for _, point := range points {
+		highest = math.Max(highest, builder.height(point[0], point[1]))
+	}
+	return highest
 }
 
 // coversAll tells whether the relief covers every point (always, without a relief).

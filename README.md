@@ -188,3 +188,12 @@ Sloped roofs can carry stone chimneys on a share of the houses (`roof.chimneys: 
 above}`). Quads share their four vertices, instanced models are written once for every chunk that
 uses them, corner stones are one column per corner, and boxes standing on the ground have no
 underside: the same city weighs about half.
+
+### Houses on slopes, irregular footprints and decoration rules
+
+Houses stand on their highest corner (`seat: highest`, the default; `lowest` sinks them uphill), so
+on a slope they rise on a stone base downhill. A footprint that is not nearly a rectangle keeps its
+walls on the footprint, so they meet the neighbours' exactly, under a roof sloping from every side.
+Decorations (plants and scattered models) keep off blocks (`clear`), lines with a width
+(`keep_off_lines`), models placed on their own and each other (`spacing`), and can keep to the edge
+of their feature (`edge`).

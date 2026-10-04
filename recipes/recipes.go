@@ -47,11 +47,24 @@ func (decorator *Decorator) Decorate(current *block.Block, pieceFor PieceFor) er
 		}
 		return decorator.flatRoof(current, roofPiece, roof)
 	case "gable", "hip":
-		// a sloped roof covers the smallest rectangle around the footprint; the walls follow that
-		// rectangle too, or gaps would show between them and the gable ends
-		if rectangle := decorator.rectangle(current); rectangle != nil {
-			current = onRectangle(current, rectangle)
+		// a gable or hip roof needs a rectangle: a footprint that nearly is one is squared (walls and
+		// roof on the rectangle); any other keeps its walls on the footprint, so they meet the
+		// neighbours' exactly, under a roof sloping from every side (or a flat one if not convex)
+		rectangle := decorator.rectangle(current)
+		if rectangle == nil || !nearlyRectangle(current.Polygon.Exterior, rectangle) {
+			decorator.walls(current, wallPiece, walls)
+			if err := decorator.stonework(current, pieceFor); err != nil {
+				return err
+			}
+			if err := decorator.facade(current, pieceFor); err != nil {
+				return err
+			}
+			if !convex(current.Polygon.Exterior) || len(current.Polygon.Holes) > 0 {
+				return decorator.flatRoof(current, roofPiece, roof)
+			}
+			return decorator.tentRoof(current, roofPiece, roof)
 		}
+		current = onRectangle(current, rectangle)
 		decorator.walls(current, wallPiece, walls)
 		if err := decorator.stonework(current, pieceFor); err != nil {
 			return err

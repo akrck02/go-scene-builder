@@ -179,3 +179,74 @@ func closedCoordinates(ring mapdata.Ring) [][]float64 {
 	}
 	return append(coordinates, coordinates[0])
 }
+
+// nearlyRectangle tells whether a footprint fills its rectangle (within 3 % of the area).
+func nearlyRectangle(footprint, rectangle mapdata.Ring) bool {
+	return math.Abs(ringArea(footprint)) >= 0.97*math.Abs(ringArea(rectangle))
+}
+
+func ringArea(ring mapdata.Ring) float64 {
+	area := 0.0
+	for index := range ring {
+		next := ring[(index+1)%len(ring)]
+		area += ring[index][0]*next[1] - next[0]*ring[index][1]
+	}
+	return area / 2
+}
+
+// convex tells whether a ring turns the same way at every corner.
+func convex(ring mapdata.Ring) bool {
+	sign := 0.0
+	for index := range ring {
+		a, b, c := ring[index], ring[(index+1)%len(ring)], ring[(index+2)%len(ring)]
+		cross := (b[0]-a[0])*(c[1]-b[1]) - (b[1]-a[1])*(c[0]-b[0])
+		if math.Abs(cross) < 1e-14 {
+			continue
+		}
+		if sign != 0 && cross*sign < 0 {
+			return false
+		}
+		sign = cross
+	}
+	return true
+}
+
+// tentRoof covers a convex footprint with a slope from every side up to one apex over its centre,
+// as high as the pitch allows from the nearest side, with the eaves overhanging.
+func (decorator *Decorator) tentRoof(current *block.Block, piece *mesh.Piece, roof style.Style) error {
+	pitch, err := roof.Number("pitch", current.Feature.Properties, 38)
+	if err != nil {
+		return err
+	}
+	overhang, err := roof.Number("eaves", current.Feature.Properties, 0.5)
+	if err != nil {
+		return err
+	}
+	color, err := roof.Color("color", current.Feature.Properties, [4]float32{0.5, 0.3, 0.2, 1})
+	if err != nil {
+		return err
+	}
+	ring := current.Polygon.Exterior
+	centre := mapdata.Point{}
+	for _, point := range ring {
+		centre[0] += point[0] / float64(len(ring))
+		centre[1] += point[1] / float64(len(ring))
+	}
+	nearest := math.Inf(1)
+	for index := range ring {
+		from, to := ring[index], ring[(index+1)%len(ring)]
+		nearest = math.Min(nearest, mapdata.Distance(centre, mapdata.NearestOnSegment(from, to, centre)))
+	}
+	slope := math.Tan(pitch * math.Pi / 180)
+	apex := decorator.at([]float64{centre[0], centre[1]}, current.Eaves+nearest*1000*slope)
+	edge := current.Eaves - overhang*slope
+	outer := func(point mapdata.Point) mesh.Vector {
+		away := mapdata.Direction(centre, point)
+		grown := mapdata.Point{point[0] + away[0]*overhang/1000, point[1] + away[1]*overhang/1000}
+		return decorator.at([]float64{grown[0], grown[1]}, edge)
+	}
+	for index := range ring {
+		piece.AddTriangle(outer(ring[index]), outer(ring[(index+1)%len(ring)]), apex, upwards, color)
+	}
+	return nil
+}
