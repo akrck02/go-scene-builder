@@ -67,3 +67,41 @@ func TestBridgeAndRoundTower(test *testing.T) {
 		test.Errorf("%d triangles, want %d", triangles, 10+32+14)
 	}
 }
+
+func TestBattlementsAndArchedGate(test *testing.T) {
+	rules, err := style.Parse([]byte(`
+units: m
+rules:
+  - when: {kind: road}
+    shape: {role: none}
+  - when: {kind: wall}
+    shape: {role: line, height: 30, thickness: 8, segment: 1000, sink: 0, battlements: {height: 2, width: 2, gap: 2}}
+    openings: {where: {kind: road}, width: 10}
+    decorate: [{recipe: gate_towers, size: 10, height: 40, sink: 0, arch: 18}]
+`))
+	if err != nil {
+		test.Fatal(err)
+	}
+	wall := &mapdata.Feature{Identifier: "wall", Kind: "wall", Lines: [][]mapdata.Point{{{0, 0}, {0.1, 0}}}}
+	road := &mapdata.Feature{Identifier: "road", Kind: "road", Lines: [][]mapdata.Point{{{0.05, -0.02}, {0.05, 0.02}}}}
+	solid := Build(Input{Map: &mapdata.Map{Features: []*mapdata.Feature{wall, road}}, Rules: rules}).Pieces[0]
+	merlonTops, overTheGate := 0, false
+	for index := 0; index < len(solid.Positions); index += 3 {
+		east, height := float64(solid.Positions[index]), float64(solid.Positions[index+1])
+		if math.Abs(height-0.032) < 1e-6 {
+			merlonTops++
+		}
+		if east > 0.0451 && east < 0.0549 && height < 0.018-1e-6 {
+			test.Errorf("something under the 18 m arch at %v km, %v m", east, height*1000)
+		}
+		if east > 0.0449 && east < 0.0551 && math.Abs(height-0.018) < 1e-6 {
+			overTheGate = true // the underside of the arch, from side to side of the gate
+		}
+	}
+	if merlonTops == 0 {
+		test.Error("no battlements on top of the wall")
+	}
+	if !overTheGate {
+		test.Error("the gate is not closed above its arch")
+	}
+}

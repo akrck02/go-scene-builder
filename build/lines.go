@@ -18,10 +18,12 @@ import (
 // underside stays "clearance" metres over the water, it reaches out to the banks and stands on
 // abutments where it does not touch the ground. Where lines of the features selected by
 // "openings.where" cross it, a gap of "openings.width" metres is left, and the recipe gate_towers
-// (in "decorate") raises a tower at each side of the gap:
+// (in "decorate") raises a tower at each side of the gap, and closes it over an arch of
+// "arch" metres if given (a gate in a tall wall). "battlements" put merlons along the top:
 //
+//	shape: {role: line, height: 30, thickness: 8, battlements: {height: 2, width: 2, gap: 1.5}}
 //	openings: {where: {kind: street, class: road}, width: 6}
-//	decorate: [{recipe: gate_towers, size: 5, height: 12}]
+//	decorate: [{recipe: gate_towers, size: 5, height: 12, arch: 16}]
 func (builder *featureBuilder) line(feature *mapdata.Feature, resolved, shape style.Style) error {
 	values, err := numbers(shape, feature.Properties, map[string]float64{"height": 3, "thickness": 1, "segment": 10, "sink": 1.5, "clearance": 1.5})
 	if err != nil {
@@ -36,16 +38,20 @@ func (builder *featureBuilder) line(feature *mapdata.Feature, resolved, shape st
 	if err != nil {
 		return err
 	}
+	battlements, err := numbers(shape.Section("battlements"), feature.Properties, map[string]float64{"height": 0, "width": 2, "gap": 1.5})
+	if err != nil {
+		return err
+	}
 	for _, line := range feature.Lines {
 		gaps := openingsAlong(line, builder.openings[feature], width/2000)
 		if shape.Text("follow", "ground") == "level" {
 			builder.levelLine(line, values, color, material)
 		} else {
 			for _, part := range withoutGaps(line, gaps) {
-				builder.groundLine(part, values, color, material)
+				builder.groundLine(part, values, battlements, color, material)
 			}
 		}
-		if err := builder.gateTowers(feature, resolved, line, gaps, color, material); err != nil {
+		if err := builder.gateTowers(feature, resolved, line, gaps, values, color, material); err != nil {
 			return err
 		}
 	}
@@ -64,7 +70,7 @@ func numbers(section style.Style, properties map[string]any, defaults map[string
 	return values, nil
 }
 
-func (builder *featureBuilder) groundLine(line []mapdata.Point, values map[string]float64, color [4]float32, material mesh.Material) {
+func (builder *featureBuilder) groundLine(line []mapdata.Point, values, battlements map[string]float64, color [4]float32, material mesh.Material) {
 	points := densified(line, values["segment"]/1000)
 	for index := 1; index < len(points); index++ {
 		outline := sideways(points[index-1], points[index], values["thickness"]/2000)
@@ -73,6 +79,21 @@ func (builder *featureBuilder) groundLine(line []mapdata.Point, values map[strin
 		}
 		base := builder.lowestOf(mapdata.Ring{points[index-1], points[index]})
 		builder.prism(mapdata.Polygon{Exterior: outline}, base-values["sink"], base+values["height"], color, color, material)
+		if battlements["height"] > 0 {
+			builder.merlons(points[index-1], points[index], base+values["height"], values["thickness"], battlements, color, material)
+		}
+	}
+}
+
+// merlons raise the solid teeth of battlements along a piece of wall top, "gap" metres apart.
+func (builder *featureBuilder) merlons(from, to mapdata.Point, top, thickness float64, battlements map[string]float64, color [4]float32, material mesh.Material) {
+	length := mapdata.Distance(from, to)
+	width, pitch := battlements["width"]/1000, (battlements["width"]+battlements["gap"])/1000
+	for start := pitch / 2; start+width <= length; start += pitch {
+		outline := sideways(pointAlong(from, to, start/length), pointAlong(from, to, (start+width)/length), thickness/2000)
+		if outline != nil {
+			builder.prism(mapdata.Polygon{Exterior: outline}, top, top+battlements["height"], color, color, material)
+		}
 	}
 }
 
@@ -228,14 +249,14 @@ func pointAlong(from, to mapdata.Point, share float64) mapdata.Point {
 }
 
 // gateTowers raises, for the gate_towers recipe, a square tower on the line at each side of every gap.
-func (builder *featureBuilder) gateTowers(feature *mapdata.Feature, resolved style.Style, line []mapdata.Point, gaps []gap, color [4]float32, material mesh.Material) error {
+func (builder *featureBuilder) gateTowers(feature *mapdata.Feature, resolved style.Style, line []mapdata.Point, gaps []gap, wall map[string]float64, color [4]float32, material mesh.Material) error {
 	decorations, _ := resolved["decorate"].([]any)
 	for _, entry := range decorations {
 		settings := style.Style(asMap(entry))
 		if settings.Text("recipe", "") != "gate_towers" {
 			continue
 		}
-		values, err := numbers(settings, feature.Properties, map[string]float64{"size": 5, "height": 12, "sink": 1.5})
+		values, err := numbers(settings, feature.Properties, map[string]float64{"size": 5, "height": 12, "sink": 1.5, "arch": 0})
 		if err != nil {
 			return err
 		}
@@ -248,6 +269,9 @@ func (builder *featureBuilder) gateTowers(feature *mapdata.Feature, resolved sty
 			for _, along := range []float64{stretch.from - half, stretch.to + half} {
 				centre, direction := pointAndDirection(line, along)
 				builder.tower(centre, direction, half, values, towerColor, material)
+			}
+			if values["arch"] > 0 {
+				builder.archOver(line, stretch, wall, values["arch"], color, material)
 			}
 		}
 	}
@@ -262,6 +286,18 @@ func (builder *featureBuilder) tower(centre, direction mapdata.Point, half float
 	}
 	base := builder.lowestOf(outline)
 	builder.prism(mapdata.Polygon{Exterior: outline}, base-values["sink"], base+values["height"], color, color, material)
+}
+
+// archOver closes a gap in a wall above "arch" metres from the ground, up to the wall's top.
+func (builder *featureBuilder) archOver(line []mapdata.Point, stretch gap, wall map[string]float64, arch float64, color [4]float32, material mesh.Material) {
+	start, _ := pointAndDirection(line, stretch.from)
+	end, _ := pointAndDirection(line, stretch.to)
+	outline := sideways(start, end, wall["thickness"]/2000)
+	if outline == nil || !builder.coversAll(outline) || arch >= wall["height"] {
+		return
+	}
+	ground := builder.lowestOf(mapdata.Ring{start, end})
+	builder.prism(mapdata.Polygon{Exterior: outline}, ground+arch, ground+wall["height"], color, color, material)
 }
 
 // pointAndDirection is the point at a distance along a line and the line's direction there.

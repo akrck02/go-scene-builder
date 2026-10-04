@@ -161,3 +161,9 @@ of their size; blobs are shaded smooth unless `smooth: false`, and `rings` sets 
 cut). Every copy placed on a map picks a variant and changes its colour, warmth and size
 (`vary: {color: 0.12, warmth: 0.06, scale: [0.8, 1.3]}`), through the instances' tint. Cylinders
 can narrow to `top_radius` (trunks).
+
+### Tall walls and gates
+
+Wall lines can carry battlements along their top (`battlements: {height, width, gap}`, metres), and
+the gate_towers recipe can close each gate above an arch (`arch`: metres from the ground), so a tall
+wall keeps its gate a gate.
