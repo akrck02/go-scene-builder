@@ -16,11 +16,13 @@ import (
 //	facade:
 //	  ground_floor: 3.5        # height of the ground floor; floor_height for the others
 //	  floor_height: 3
-//	  door: {width: 1.1, height: 2.3, color: [...], material: {...}}
+//	  door: {width: 1.1, height: 2.3, round: 0.3, color: [...], material: {...}}   # round: share of round-topped doors
 //	  windows: {width: 0.9, height: 1.3, sill: 1, spacing: 2.6, color: "#2b3038", shutters: [...]}
 //	  flower_boxes: {share: 0.6, color: "#6b4a2e", flowers: [...], glowing: {share: 0.3, color: "#d8e8ff"}}
 //	  emblem: {size: 0.6, color: "#d9dee6"}       # a six-petal flower above the door
 //	  lamp: {share: 0.3, color: "#ffb04a"}          # a glowing lamp beside the door
+//	  baskets: {share: 0.3, color: "#8a6a44", flowers: [...]}   # flower baskets hung beside the door
+//	  ivy: {share: 0.2, color: ["#3f6b32", ...], height: [2, 6]} # ivy climbing the wall (takes the season)
 //
 // Every choice (palette colours, which windows get flower boxes) is stable for each block.
 
@@ -90,6 +92,16 @@ func (decorator *Decorator) facade(current *block.Block, pieceFor PieceFor) erro
 	if err := decorator.door(wall, settings, properties, pieceFor, doorAt, door, values); err != nil {
 		return err
 	}
+	if values["basket share"] > 0 && chosen(properties, "baskets", values["basket share"]) {
+		if err := decorator.baskets(wall, settings.Section("baskets"), properties, pieceFor, random, doorAt, door); err != nil {
+			return err
+		}
+	}
+	if values["ivy share"] > 0 && chosen(properties, "ivy", values["ivy share"]) {
+		if err := decorator.ivy(wall, settings.Section("ivy"), properties, pieceFor, random, current.Eaves-current.Ground); err != nil {
+			return err
+		}
+	}
 	for floor := range floors {
 		base := 0.0
 		if floor > 0 {
@@ -117,6 +129,7 @@ func facadeNumbers(settings style.Style, properties map[string]any) (map[string]
 		{"sill", "windows", "sill", 1}, {"spacing", "windows", "spacing", 2.6},
 		{"box share", "flower_boxes", "share", 0}, {"glowing share", "flower_boxes", "glowing", 0},
 		{"emblem size", "emblem", "size", 0}, {"lamp share", "lamp", "share", 0},
+		{"round share", "door", "round", 0}, {"basket share", "baskets", "share", 0}, {"ivy share", "ivy", "share", 0},
 	} {
 		section := settings
 		if entry.section != "" {
@@ -142,7 +155,11 @@ func (decorator *Decorator) door(wall wallFrame, settings style.Style, propertie
 	if err != nil {
 		return err
 	}
-	wall.box(pieceFor(MaterialOf(detailMaterial, section)), at-half, at+half, 0, values["door height"], 0, 0.06, color)
+	if chosen(properties, "round door", values["round share"]) {
+		decorator.roundDoor(wall, pieceFor(MaterialOf(detailMaterial, section)), at, half, values["door height"], color)
+	} else {
+		wall.box(pieceFor(MaterialOf(detailMaterial, section)), at-half, at+half, 0, values["door height"], 0, 0.06, color)
+	}
 	if size := values["emblem size"]; size > 0 {
 		emblem := settings.Section("emblem")
 		silver, err := emblem.Color("color", properties, [4]float32{0.7, 0.72, 0.76, 1})
@@ -249,7 +266,90 @@ func (decorator *Decorator) flowerBox(wall wallFrame, settings style.Style, prop
 	return nil
 }
 
-var flowerMaterial = mesh.Material{Name: "flowers", Kind: "lit", HideBelow: facadeHideBelow}
+var (
+	flowerMaterial = mesh.Material{Name: "flowers", Kind: "lit", HideBelow: facadeHideBelow}
+	ivyMaterial    = mesh.Material{Name: "ivy", Kind: "lit", Foliage: true, HideBelow: facadeHideBelow}
+)
+
+// chosen tells, stably for each block, whether it gets something that only a share of blocks get.
+func chosen(properties map[string]any, what string, share float64) bool {
+	return share > 0 && float64(style.Pick(properties, what, 1000))/1000 < share
+}
+
+// roundDoor adds a door whose top is a half circle: the straight part and a fan above it.
+func (decorator *Decorator) roundDoor(wall wallFrame, piece *mesh.Piece, at, half, height float64, color [4]float32) {
+	springing := math.Max(height-half, height*0.5)
+	wall.box(piece, at-half, at+half, 0, springing, 0, 0.06, color)
+	outward := mesh.SceneDirection(wall.outward[0], wall.outward[1], 0)
+	centre := wall.point(at, springing, 0.06)
+	const steps = 12
+	for step := range steps {
+		first, second := math.Pi*float64(step)/steps, math.Pi*float64(step+1)/steps
+		piece.AddTriangle(centre, wall.point(at+half*math.Cos(first), springing+half*math.Sin(first), 0.06),
+			wall.point(at+half*math.Cos(second), springing+half*math.Sin(second), 0.06), outward, color)
+	}
+}
+
+// baskets hang a basket of flowers at each side of the door.
+func (decorator *Decorator) baskets(wall wallFrame, settings style.Style, properties map[string]any, pieceFor PieceFor, random *rand.Rand, doorAt, doorHalf float64) error {
+	wicker, err := settings.Color("color", properties, [4]float32{0.45, 0.32, 0.18, 1})
+	if err != nil {
+		return err
+	}
+	palette, _ := settings["flowers"].([]any)
+	for _, side := range []float64{-1, 1} {
+		at := doorAt + side*(doorHalf+0.75)
+		if at < 0.5 || at > wall.length-0.5 {
+			continue
+		}
+		wall.box(pieceFor(MaterialOf(detailMaterial, settings)), at-0.3, at+0.3, 1.45, 1.75, 0.05, 0.45, wicker)
+		wall.box(pieceFor(detailMaterial), at-0.02, at+0.02, 1.75, 2.15, 0.02, 0.06, wicker) // the hook
+		for flower := range 7 {
+			color := [4]float32{0.85, 0.3, 0.4, 1}
+			if len(palette) > 0 {
+				if color, err = style.LinearColor(asText(palette[random.IntN(len(palette))])); err != nil {
+					return err
+				}
+			}
+			along := at - 0.27 + 0.54*float64(flower)/6
+			wall.box(pieceFor(flowerMaterial), along-0.05, along+0.05, 1.72, 1.86+0.1*random.Float64(), 0.1+0.25*random.Float64(), 0.2+0.25*random.Float64(), color)
+		}
+	}
+	return nil
+}
+
+// ivy climbs the wall from the ground: a few stems that wander up, covered in small leaves.
+func (decorator *Decorator) ivy(wall wallFrame, settings style.Style, properties map[string]any, pieceFor PieceFor, random *rand.Rand, wallHeight float64) error {
+	low, high := 2.0, 6.0
+	if values, isList := settings["height"].([]any); isList && len(values) == 2 {
+		low, _ = toFloat(values[0])
+		high, _ = toFloat(values[1])
+	}
+	palette, _ := settings["color"].([]any)
+	leafColor := func() ([4]float32, error) {
+		if len(palette) == 0 {
+			return [4]float32{0.2, 0.36, 0.15, 1}, nil
+		}
+		return style.LinearColor(asText(palette[random.IntN(len(palette))]))
+	}
+	piece := pieceFor(MaterialOf(ivyMaterial, settings))
+	start := 0.3 + random.Float64()*math.Max(0.1, wall.length-0.6)
+	for range 2 + random.IntN(2) {
+		along, up := start+(random.Float64()-0.5)*1.2, 0.0
+		top := math.Min(wallHeight-0.2, low+(high-low)*random.Float64())
+		for up < top {
+			along = math.Max(0.15, math.Min(wall.length-0.15, along+(random.Float64()-0.5)*0.35))
+			color, err := leafColor()
+			if err != nil {
+				return err
+			}
+			size := 0.12 + 0.1*random.Float64()
+			wall.box(piece, along-size, along+size, up, up+size*1.4, 0.02, 0.05+0.04*random.Float64(), color)
+			up += size * 1.6
+		}
+	}
+	return nil
+}
 
 // facadeHideBelow: facade details are not drawn when their square of the map looks smaller than
 // this share of the screen (far away, they are a few pixels and cost much).
@@ -258,4 +358,14 @@ const facadeHideBelow = 0.12
 func asText(value any) string {
 	text, _ := value.(string)
 	return text
+}
+
+func toFloat(value any) (float64, bool) {
+	switch typed := value.(type) {
+	case float64:
+		return typed, true
+	case int:
+		return float64(typed), true
+	}
+	return 0, false
 }

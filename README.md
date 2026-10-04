@@ -167,3 +167,11 @@ can narrow to `top_radius` (trunks).
 Wall lines can carry battlements along their top (`battlements: {height, width, gap}`, metres), and
 the gate_towers recipe can close each gate above an arch (`arch`: metres from the ground), so a tall
 wall keeps its gate a gate.
+
+### Gates as models and facade details
+
+Models have a pointed-arch shape (`ogive`: width, straight sides, depth; with `border`, a frame), so
+a gate can be built as a model and placed on a point; `gate_towers` skips the gates near points of a
+kind (`except_near: main_gate`). Facades can have round-topped doors (`door.round`: share), flower
+baskets beside the door (`baskets`) and ivy climbing the wall (`ivy`, a foliage material that takes
+the season).

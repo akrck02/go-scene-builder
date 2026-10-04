@@ -23,7 +23,10 @@ import (
 //
 //	shape: {role: line, height: 30, thickness: 8, battlements: {height: 2, width: 2, gap: 1.5}}
 //	openings: {where: {kind: street, class: road}, width: 6}
-//	decorate: [{recipe: gate_towers, size: 5, height: 12, arch: 16}]
+//	decorate: [{recipe: gate_towers, size: 5, height: 12, arch: 16, except_near: main_gate}]
+//
+// except_near names a kind of point feature: gates near one get neither towers nor arch (a gate
+// built as a model of its own stands there).
 func (builder *featureBuilder) line(feature *mapdata.Feature, resolved, shape style.Style) error {
 	values, err := numbers(shape, feature.Properties, map[string]float64{"height": 3, "thickness": 1, "segment": 10, "sink": 1.5, "clearance": 1.5})
 	if err != nil {
@@ -265,7 +268,11 @@ func (builder *featureBuilder) gateTowers(feature *mapdata.Feature, resolved sty
 			return err
 		}
 		half := values["size"] / 2000
+		landmarks := builder.pointsOfKind(settings.Text("except_near", ""))
 		for _, stretch := range gaps {
+			if centre, _ := pointAndDirection(line, (stretch.from+stretch.to)/2); nearAny(centre, landmarks, 4*half+(stretch.to-stretch.from)) {
+				continue // a gate built as a model of its own stands here
+			}
 			for _, along := range []float64{stretch.from - half, stretch.to + half} {
 				centre, direction := pointAndDirection(line, along)
 				builder.tower(centre, direction, half, values, towerColor, material)
@@ -286,6 +293,29 @@ func (builder *featureBuilder) tower(centre, direction mapdata.Point, half float
 	}
 	base := builder.lowestOf(outline)
 	builder.prism(mapdata.Polygon{Exterior: outline}, base-values["sink"], base+values["height"], color, color, material)
+}
+
+// pointsOfKind are the points of the map's features of a kind ("" = none).
+func (builder *featureBuilder) pointsOfKind(kind string) []mapdata.Point {
+	if kind == "" {
+		return nil
+	}
+	var points []mapdata.Point
+	for _, feature := range builder.input.Map.Features {
+		if feature.Kind == kind {
+			points = append(points, feature.Points...)
+		}
+	}
+	return points
+}
+
+func nearAny(point mapdata.Point, others []mapdata.Point, distance float64) bool {
+	for _, other := range others {
+		if mapdata.Distance(point, other) <= distance {
+			return true
+		}
+	}
+	return false
 }
 
 // archOver closes a gap in a wall above "arch" metres from the ground, up to the wall's top.

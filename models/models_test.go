@@ -154,3 +154,20 @@ func TestVariantsAndCopies(t *testing.T) {
 		t.Errorf("copies use %d variants", len(seen))
 	}
 }
+
+func TestOgiveArch(t *testing.T) {
+	piece := &mesh.Piece{}
+	addOgive(piece, placement{}, 4, 3, 0.5, 0, 6, [4]float32{1, 1, 1, 1})
+	top := 0.0
+	for index := 1; index < len(piece.Positions); index += 3 {
+		top = math.Max(top, float64(piece.Positions[index]))
+	}
+	if want := (3 + 4*math.Sqrt(3)/2) / 1000; math.Abs(top-want) > 1e-6 {
+		t.Errorf("the arch's point at %v km, want %v", top, want)
+	}
+	frame := &mesh.Piece{}
+	addOgive(frame, placement{}, 4, 3, 0.5, 0.5, 6, [4]float32{1, 1, 1, 1})
+	if frame.TriangleCount() <= piece.TriangleCount() {
+		t.Errorf("a frame has inner sides too: %d triangles against %d", frame.TriangleCount(), piece.TriangleCount())
+	}
+}

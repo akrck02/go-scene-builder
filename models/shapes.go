@@ -210,3 +210,58 @@ func addPetals(piece *mesh.Piece, place placement, count int, length, width, til
 		piece.AddQuad(base, left, tip, right, normal.Scale(-1), color)
 	}
 }
+
+// ogiveOutline is the outline of a pointed (equilateral) arch standing on the ground, from the
+// bottom left round to the bottom right: straight sides of "straight" metres, then two arcs of radius
+// "width" that meet at the top; each arc is cut in "steps" pieces.
+func ogiveOutline(width, straight float64, steps int) [][2]float64 {
+	half := width / 2
+	outline := [][2]float64{{-half, 0}, {-half, straight}}
+	for step := 1; step < steps; step++ { // left arc: centre on the right side, from 180° to 120°
+		angle := math.Pi - (math.Pi/3)*float64(step)/float64(steps)
+		outline = append(outline, [2]float64{half + width*math.Cos(angle), straight + width*math.Sin(angle)})
+	}
+	outline = append(outline, [2]float64{0, straight + width*math.Sqrt(3)/2})
+	for step := steps - 1; step >= 1; step-- { // right arc, mirrored
+		angle := math.Pi - (math.Pi/3)*float64(step)/float64(steps)
+		outline = append(outline, [2]float64{-(half + width*math.Cos(angle)), straight + width*math.Sin(angle)})
+	}
+	return append(outline, [2]float64{half, straight}, [2]float64{half, 0})
+}
+
+// addOgive adds a pointed arch "depth" metres thick (z). Solid (a door leaf, a window) when border is
+// 0; otherwise a frame "border" metres wide around an opening of the same shape.
+func addOgive(piece *mesh.Piece, place placement, width, straight, depth, border float64, steps int, color [4]float32) {
+	steps = max(2, steps)
+	outer := ogiveOutline(width, straight, steps)
+	front, back := depth/2, -depth/2
+	at := func(point [2]float64, z float64) mesh.Vector { return place.point(point[0], point[1], z) }
+	centre := place.point(0, straight/2, 0)
+	sides := func(outline [][2]float64, outwards float64) {
+		for index := 0; index+1 < len(outline); index++ {
+			first, second := outline[index], outline[index+1]
+			middle := at([2]float64{(first[0] + second[0]) / 2, (first[1] + second[1]) / 2}, 0)
+			piece.AddQuad(at(first, front), at(second, front), at(second, back), at(first, back), middle.Subtract(centre).Scale(outwards), color)
+		}
+	}
+	if border <= 0 {
+		middle := [2]float64{0, straight / 2}
+		for index := 0; index+1 < len(outer); index++ {
+			piece.AddTriangle(at(middle, front), at(outer[index], front), at(outer[index+1], front), place.direction(0, 0, 1), color)
+			piece.AddTriangle(at(middle, back), at(outer[index+1], back), at(outer[index], back), place.direction(0, 0, -1), color)
+		}
+		sides(outer, 1)
+		piece.AddQuad(at(outer[len(outer)-1], front), at(outer[0], front), at(outer[0], back), at(outer[len(outer)-1], back), place.direction(0, -1, 0), color)
+		return
+	}
+	inner := ogiveOutline(width-2*border, straight, steps)
+	for index := 0; index+1 < len(outer); index++ {
+		piece.AddQuad(at(outer[index], front), at(outer[index+1], front), at(inner[index+1], front), at(inner[index], front), place.direction(0, 0, 1), color)
+		piece.AddQuad(at(outer[index], back), at(inner[index], back), at(inner[index+1], back), at(outer[index+1], back), place.direction(0, 0, -1), color)
+	}
+	sides(outer, 1)
+	sides(inner, -1)
+	for _, jamb := range [][2][2]float64{{outer[0], inner[0]}, {inner[len(inner)-1], outer[len(outer)-1]}} {
+		piece.AddQuad(at(jamb[0], front), at(jamb[1], front), at(jamb[1], back), at(jamb[0], back), place.direction(0, -1, 0), color)
+	}
+}

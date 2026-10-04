@@ -50,3 +50,39 @@ func TestFacadeOnTheStreetSide(test *testing.T) {
 		}
 	}
 }
+
+func TestRoundDoorBasketsAndIvy(test *testing.T) {
+	ring := mapdata.Ring{{0, 0}, {0.008, 0}, {0.008, 0.01}, {0, 0.01}}
+	facade := map[string]any{
+		"door":    map[string]any{"round": 1.0},
+		"baskets": map[string]any{"share": 1.0, "flowers": []any{"#dd3344"}},
+		"ivy":     map[string]any{"share": 1.0, "color": []any{"#3f6b32"}, "height": []any{3.0, 5.0}},
+	}
+	current := &block.Block{Feature: &mapdata.Feature{Identifier: "house", Properties: map[string]any{"id": "house"}},
+		Polygon: mapdata.Polygon{Exterior: ring}, Ground: 0, Bottom: -1, Eaves: 6.5,
+		Facing: &block.Facing{Side: 0, Outward: mapdata.Point{0, -1}},
+		Style:  style.Style{"facade": facade, "roof": map[string]any{"recipe": "flat"}}}
+	pieces := map[string]*mesh.Piece{}
+	pieceFor := func(material mesh.Material) *mesh.Piece {
+		if pieces[material.Name] == nil {
+			pieces[material.Name] = &mesh.Piece{Material: material}
+		}
+		return pieces[material.Name]
+	}
+	if err := (&Decorator{Context: geos.NewContext()}).Decorate(current, pieceFor); err != nil {
+		test.Fatal(err)
+	}
+	if ivy := pieces["ivy"]; ivy == nil || ivy.TriangleCount() == 0 || !ivy.Material.Foliage {
+		test.Fatal("the ivy is missing or does not take the season")
+	}
+	if pieces["flowers"] == nil {
+		test.Error("no flowers in the baskets")
+	}
+	top := 0.0
+	for index := 1; index < len(pieces["details"].Positions); index += 3 {
+		top = max(top, float64(pieces["details"].Positions[index]))
+	}
+	if top < 0.0021 { // the hooks of the baskets reach 2.15 m; a round door 2.3 m
+		test.Errorf("details reach only %v m", top*1000)
+	}
+}

@@ -15,7 +15,8 @@
 // Shapes: box (size [x, y, z]), cylinder and cone (radius, height, sides; a cylinder can narrow to
 // top_radius), blob (radius or size [x, y, z], sides, rings; smooth unless smooth: false; wobble:
 // a share of its size that bends it out of round, like a tree crown), petals (count, length, width,
-// tilt in degrees from flat). Every part can be placed (at: [x, y, z]) and turned around the
+// tilt in degrees from flat), ogive (a pointed arch: width, straight sides, depth; with border, a
+// frame around an opening of the same shape). Every part can be placed (at: [x, y, z]) and turned around the
 // vertical axis (turn: degrees), and has a colour (or a palette: each part takes one) and a
 // material.
 //
@@ -258,6 +259,12 @@ func (place placement) point(x, y, z float64) mesh.Vector {
 	return mesh.Vector{(place.at[0] + x*cosine - z*sine) / 1000, (place.at[1] + y) / 1000, (place.at[2] + x*sine + z*cosine) / 1000}
 }
 
+// direction turns a local direction like the placement turns points (for normals).
+func (place placement) direction(x, y, z float64) mesh.Vector {
+	cosine, sine := math.Cos(place.turn), math.Sin(place.turn)
+	return mesh.Vector{x*cosine - z*sine, y, x*sine + z*cosine}
+}
+
 func placementOf(part style.Style) placement {
 	place := placement{}
 	if values, isList := part["at"].([]any); isList && len(values) == 3 {
@@ -326,6 +333,13 @@ func addPart(piece *mesh.Piece, part style.Style, color [4]float32, seed uint64)
 		wobble, _ := part.Number("wobble", nil, 0)
 		smooth := part["smooth"] != false
 		addBlob(piece, place, blobShape{size: size, sides: int(sides), rings: int(rings), wobble: wobble, seed: seed, smooth: smooth}, color)
+	case "ogive":
+		width, _ := part.Number("width", nil, 1)
+		straight, _ := part.Number("straight", nil, 1)
+		depth, _ := part.Number("depth", nil, 0.2)
+		border, _ := part.Number("border", nil, 0)
+		steps, _ := part.Number("steps", nil, 6)
+		addOgive(piece, place, width, straight, depth, border, int(steps), color)
 	case "petals":
 		count, _ := part.Number("count", nil, 5)
 		length, _ := part.Number("length", nil, 0.05)
