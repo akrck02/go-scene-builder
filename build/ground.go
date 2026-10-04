@@ -13,7 +13,7 @@ var upwards = mesh.Vector{0, 1, 0}
 // ground drapes a feature's surfaces on the relief, "lift" metres above it (so they do not flicker
 // with the terrain).
 func (builder *featureBuilder) ground(feature *mapdata.Feature, resolved, shape style.Style) error {
-	color, err := resolved.Color("color", [4]float32{0.6, 0.6, 0.6, 1})
+	color, err := resolved.Color("color", feature.Properties, [4]float32{0.6, 0.6, 0.6, 1})
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func (builder *featureBuilder) ground(feature *mapdata.Feature, resolved, shape 
 // nearest point of the feature's axis (its lines) plus "above_bed" metres, so the water is level
 // from bank to bank. Without lines, the sheet lies "above_bed" over the lowest corner of each polygon.
 func (builder *featureBuilder) water(feature *mapdata.Feature, resolved, shape style.Style) error {
-	color, err := resolved.Color("color", [4]float32{0.15, 0.35, 0.5, 1})
+	color, err := resolved.Color("color", feature.Properties, [4]float32{0.15, 0.35, 0.5, 1})
 	if err != nil {
 		return err
 	}
@@ -47,8 +47,13 @@ func (builder *featureBuilder) water(feature *mapdata.Feature, resolved, shape s
 	if err != nil {
 		return err
 	}
+	width, err := shape.Number("width", feature.Properties, 0)
+	if err != nil {
+		return err
+	}
+	axis := newAxisIndex(feature.Lines, math.Max(width/1000, 0.02))
 	level := func(point mapdata.Point) float64 {
-		bed := nearestOnLines(feature.Lines, point)
+		bed := axis.nearest(point)
 		return builder.height(bed[0], bed[1]) + aboveBed
 	}
 	if len(feature.Lines) == 0 {
@@ -84,26 +89,52 @@ func (builder *featureBuilder) lowestCorner(feature *mapdata.Feature) float64 {
 	return lowest
 }
 
-// nearestOnLines is the point of some line nearest to a point.
-func nearestOnLines(lines [][]mapdata.Point, point mapdata.Point) mapdata.Point {
-	best, bestDistance := point, math.Inf(1)
+// axisIndex finds the nearest point of a river's axis quickly: its segments in a grid of cells.
+type axisIndex struct {
+	cell     float64
+	segments [][2]mapdata.Point
+	cells    map[[2]int][]int
+}
+
+func newAxisIndex(lines [][]mapdata.Point, cell float64) *axisIndex {
+	index := &axisIndex{cell: cell, cells: map[[2]int][]int{}}
 	for _, line := range lines {
-		for index := 1; index < len(line); index++ {
-			candidate := nearestOnSegment(line[index-1], line[index], point)
-			if gap := distance(candidate, point); gap < bestDistance {
-				best, bestDistance = candidate, gap
+		for point := 1; point < len(line); point++ {
+			from, to := line[point-1], line[point]
+			number := len(index.segments)
+			index.segments = append(index.segments, [2]mapdata.Point{from, to})
+			low, high := index.cellOf(mapdata.Point{math.Min(from[0], to[0]), math.Min(from[1], to[1])}),
+				index.cellOf(mapdata.Point{math.Max(from[0], to[0]), math.Max(from[1], to[1])})
+			for column := low[0]; column <= high[0]; column++ {
+				for row := low[1]; row <= high[1]; row++ {
+					index.cells[[2]int{column, row}] = append(index.cells[[2]int{column, row}], number)
+				}
+			}
+		}
+	}
+	return index
+}
+
+func (index *axisIndex) cellOf(point mapdata.Point) [2]int {
+	return [2]int{int(math.Floor(point[0] / index.cell)), int(math.Floor(point[1] / index.cell))}
+}
+
+// nearest looks in the rings of cells around a point, wider and wider, until it finds segments.
+func (index *axisIndex) nearest(point mapdata.Point) mapdata.Point {
+	centre := index.cellOf(point)
+	best, bestSquare := point, math.Inf(1)
+	for ring := 0; ring < 64 && math.IsInf(bestSquare, 1); ring++ {
+		for column := centre[0] - ring - 1; column <= centre[0]+ring+1; column++ {
+			for row := centre[1] - ring - 1; row <= centre[1]+ring+1; row++ {
+				for _, number := range index.cells[[2]int{column, row}] {
+					candidate := mapdata.NearestOnSegment(index.segments[number][0], index.segments[number][1], point)
+					across, along := candidate[0]-point[0], candidate[1]-point[1]
+					if square := across*across + along*along; square < bestSquare {
+						best, bestSquare = candidate, square
+					}
+				}
 			}
 		}
 	}
 	return best
-}
-
-func nearestOnSegment(from, to, point mapdata.Point) mapdata.Point {
-	across, along := to[0]-from[0], to[1]-from[1]
-	length := across*across + along*along
-	if length == 0 {
-		return from
-	}
-	share := math.Max(0, math.Min(1, ((point[0]-from[0])*across+(point[1]-from[1])*along)/length))
-	return mapdata.Point{from[0] + share*across, from[1] + share*along}
 }

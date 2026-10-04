@@ -9,11 +9,11 @@ map and the rules do.
 map + relief → 1 basic blocks → 2 relations → 3 style rules → 4 decoration → pieces → .glb / live scene
 ```
 
-Done so far: reading maps, reliefs and rules; the basic blocks (terrain, draped ground, level
-water, volumes, lines with thickness); the relations between blocks (the side that faces a street,
-the walls neighbours share); recipes for walls and roofs (flat, gable, hip); a quantised `.glb`
-writer; `build-scene`. Next: gates and bridges (phase 3) and use from go-simulator for live scenes
-(phase 4).
+Done so far (phases 1 to 3): reading maps, reliefs and rules; the basic blocks (terrain, draped
+ground, level water, volumes, lines, points); the relations between blocks (the side that faces a
+street, the walls neighbours share, the gaps where lines cross); recipes for walls, roofs (flat,
+gable, hip) and gate towers; a quantised `.glb` writer; `build-scene`. Next: use from go-simulator
+for live scenes (phase 4), then windows, chimneys and trees (phase 5).
 
 ## Run
 
@@ -24,6 +24,7 @@ go run ./cmd/build-scene -map map.geojson -relief relieve.json -style style.yaml
 ```
 
 It prints how long each stage took and the first warnings (features no rule styles, wrong values).
+`-profile cpu.out` writes a CPU profile for `go tool pprof`.
 
 ## Inputs
 
@@ -38,11 +39,14 @@ row from the north, each at the centre of its cell. Without a relief the ground 
 
 **Style rules**: YAML, applied in cascade (every matching rule adds or replaces values; the last
 one wins). Selectors match the kind, properties equal to a value or one of a list, and numeric
-ranges. Values are numbers, `#rrggbb` colours or arithmetic over the feature's numeric properties.
+ranges. Values are numbers, `#rrggbb` colours (or `"@name"`: the colour in the feature's property `name`)
+or arithmetic over the feature's numeric properties.
 
 ```yaml
 units: m
-environment: {sun: [235, 38]}          # azimuth and elevation in degrees; water_level adds a sea
+chunk: 0.5                             # km: pieces are grouped in squares this big (larger for larger maps)
+environment: {sun: [235, 38]}          # azimuth and elevation in degrees; water_level adds a sea;
+                                       # vertical_scale exaggerates the relief seen from above
 terrain: {color: "#6b7f47", bands: [{above: 350, color: "#9e9e99", blend: 30}]}
 relations:
   facing: {when: {kind: street}, reach: 20}   # which side of a block looks onto a street
@@ -61,18 +65,28 @@ rules:
     roof: {color: "#8e4631"}
   - when: {kind: wall}
     shape: {role: line, height: 9, thickness: 3}
+    openings: {where: {kind: street, class: road}, width: 6}   # a gap where a road crosses it
+    decorate: [{recipe: gate_towers, size: 6, height: 13}]    # and a tower at each side of the gap
+  - when: {kind: bridge}
+    shape: {role: line, follow: level, thickness: "width * 1000", height: 0.4, sink: 0.8}
+  - when: {kind: tower}
+    shape: {role: point, size: 8, height: 15, form: round}
 ```
 
 Roles: `ground` (polygons, or lines widened by `width`, draped `lift` metres over the relief),
 `water` (level sheet `above_bed` metres over the bed under the feature's own line), `volume`
 (a block: walls from `sink` metres under the lowest ground under its corners up to `height`, where
 the roof starts), `line` (prisms of
-`thickness` and `height` in pieces of `segment` metres), `point` and `none` (nothing yet).
+`thickness` and `height` in pieces of `segment` metres following the ground, or with `follow: level`
+one level prism whose top is `height` over its highest end, like a bridge deck), `point` (a square
+or round block of `size` metres, decorated like volumes) and `none`.
 
-Volumes are decorated by recipes: `walls` (colour; shared walls are left out) and `roof`: `recipe`
+Volumes are decorated by recipes: `walls` (colour; where a neighbour leans against a wall only the
+part above its eaves is drawn) and `roof`: `recipe`
 `flat`, `gable` or `hip`, with `pitch` (degrees), `eaves` (overhang, metres), `color` and `ridge`:
 `long` or `short` (the side of the footprint's rectangle the ridge follows), `along_street` or
-`across_street` (relative to the side that faces a street).
+`across_street` (relative to the side that faces a street). Under a sloped roof the walls stand on
+the footprint's smallest rectangle, like the roof.
 
 ## Output
 

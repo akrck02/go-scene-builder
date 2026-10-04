@@ -1,6 +1,7 @@
 package relations
 
 import (
+	"math"
 	"testing"
 
 	"github.com/akrck02/go-scene-builder/block"
@@ -9,7 +10,7 @@ import (
 
 func house(west float64) *block.Block {
 	ring := mapdata.Ring{{west, 0}, {west + 0.006, 0}, {west + 0.006, 0.01}, {west, 0.01}}
-	return &block.Block{Feature: &mapdata.Feature{}, Polygon: mapdata.Polygon{Exterior: ring}}
+	return &block.Block{Feature: &mapdata.Feature{}, Polygon: mapdata.Polygon{Exterior: ring}, Eaves: 6 + west*1000}
 }
 
 func TestFacingAndRows(test *testing.T) {
@@ -22,11 +23,11 @@ func TestFacingAndRows(test *testing.T) {
 			test.Errorf("%s should face the street to the south: %+v", name, current.Facing)
 		}
 	}
-	if !left.Shared[1] || !right.Shared[3] {
-		test.Errorf("the houses share a wall: left %v, right %v", left.Shared, right.Shared)
+	if left.SharedUpTo(1) != right.Eaves || right.SharedUpTo(3) != left.Eaves {
+		test.Errorf("the houses share a wall: left %v, right %v", left.Covered, right.Covered)
 	}
-	for side, shared := range alone.Shared {
-		if shared {
+	for side := range alone.Polygon.Exterior {
+		if !math.IsInf(alone.SharedUpTo(side), -1) {
 			test.Errorf("the lone house shares side %d", side)
 		}
 	}

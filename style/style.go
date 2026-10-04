@@ -39,11 +39,17 @@ func (style Style) Number(key string, properties map[string]any, fallback float6
 	return 0, fmt.Errorf("%s: not a number: %v", key, value)
 }
 
-// Color returns a colour written as "#rrggbb" (sRGB), in the linear RGBA that glTF uses.
-func (style Style) Color(key string, fallback [4]float32) ([4]float32, error) {
+// Color returns a colour written as "#rrggbb" (sRGB), in the linear RGBA that glTF uses, or
+// "@name" to take it from the feature's property "name" (falling back when it has none).
+func (style Style) Color(key string, properties map[string]any, fallback [4]float32) ([4]float32, error) {
 	text, isText := style[key].(string)
 	if !isText {
 		return fallback, nil
+	}
+	if name, isReference := strings.CutPrefix(text, "@"); isReference {
+		if text, isText = properties[name].(string); !isText {
+			return fallback, nil
+		}
 	}
 	return LinearColor(text)
 }

@@ -63,7 +63,7 @@ func terrainNormal(grid *relief.Relief, row, column int) mesh.Vector {
 
 // terrainColors returns the colour of the ground at a height.
 func terrainColors(settings style.Style) func(height float64) [4]float32 {
-	base, err := settings.Color("color", [4]float32{0.17, 0.23, 0.07, 1})
+	base, err := settings.Color("color", nil, [4]float32{0.17, 0.23, 0.07, 1})
 	if err != nil {
 		base = [4]float32{0.17, 0.23, 0.07, 1}
 	}
@@ -78,7 +78,7 @@ func terrainColors(settings style.Style) func(height float64) [4]float32 {
 		section := style.Style(values)
 		above, _ := section.Number("above", nil, 0)
 		blend, _ := section.Number("blend", nil, 0)
-		color, err := section.Color("color", base)
+		color, err := section.Color("color", nil, base)
 		if err == nil {
 			bands = append(bands, band{above, blend, color})
 		}

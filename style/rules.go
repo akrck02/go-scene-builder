@@ -26,6 +26,7 @@ type Rules struct {
 	Environment map[string]any `yaml:"environment"`
 	Terrain     map[string]any `yaml:"terrain"`
 	Relations   map[string]any `yaml:"relations"`
+	Chunk       float64        `yaml:"chunk"` // km: side of the squares pieces are grouped in (default 0.5)
 	Rules       []Rule         `yaml:"rules"`
 }
 

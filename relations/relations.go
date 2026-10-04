@@ -15,7 +15,7 @@ import (
 	"github.com/akrck02/go-scene-builder/style"
 )
 
-// Compute fills the Facing and Shared fields of every block.
+// Compute fills the Facing and Covered fields of every block.
 func Compute(blocks []*block.Block, features []*mapdata.Feature, settings map[string]any) {
 	facingSettings := style.Style(settings).Section("facing")
 	if when, _ := facingSettings["when"].(map[string]any); when != nil {
@@ -61,12 +61,16 @@ func findFacing(blocks []*block.Block, streets *segmentIndex, reach float64) {
 	}
 }
 
-// findShared marks the sides of a block that lie against a side of another block: opposite
-// directions, both ends within tolerance of the other side's line and within its length.
+// findShared records, for every side of a block that lies against a side of another block
+// (opposite directions, both ends within tolerance of the other side's line and within its length),
+// up to what height the neighbour's wall covers it: its eaves.
 func findShared(blocks []*block.Block, tolerance float64) {
 	sides := newSegmentIndex(0.02)
 	for number, current := range blocks {
-		current.Shared = make([]bool, len(current.Polygon.Exterior))
+		current.Covered = make([]float64, len(current.Polygon.Exterior))
+		for side := range current.Covered {
+			current.Covered[side] = math.Inf(-1)
+		}
 		for side := range current.Polygon.Exterior {
 			from, to := current.Side(side)
 			sides.add(segment{from: from, to: to, owner: number, side: side})
@@ -77,7 +81,7 @@ func findShared(blocks []*block.Block, tolerance float64) {
 			from, to := current.Side(side)
 			sides.near(mapdata.Middle(from, to), tolerance, func(other segment) {
 				if other.owner != number && against(from, to, other.from, other.to, tolerance) {
-					current.Shared[side] = true
+					current.Covered[side] = math.Max(current.Covered[side], blocks[other.owner].Eaves)
 				}
 			})
 		}

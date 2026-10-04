@@ -11,9 +11,9 @@ import (
 	"github.com/twpayne/go-geos"
 )
 
-func houseWithRoof(recipe string, shared []bool) (*mesh.Piece, error) {
+func houseWithRoof(recipe string, covered []float64) (*mesh.Piece, error) {
 	ring := mapdata.Ring{{0, 0}, {0.006, 0}, {0.006, 0.01}, {0, 0.01}}
-	current := &block.Block{Feature: &mapdata.Feature{}, Polygon: mapdata.Polygon{Exterior: ring}, Bottom: 0, Eaves: 6, Shared: shared,
+	current := &block.Block{Feature: &mapdata.Feature{}, Polygon: mapdata.Polygon{Exterior: ring}, Bottom: 0, Eaves: 6, Covered: covered,
 		Style: style.Style{"roof": map[string]any{"recipe": recipe, "pitch": 45.0, "eaves": 0.0, "ridge": "long"}}}
 	piece := &mesh.Piece{}
 	decorator := &Decorator{Context: geos.NewContext()}
@@ -48,9 +48,14 @@ func TestHipAndFlatRoofsAndSharedWalls(test *testing.T) {
 	if err != nil || hip.TriangleCount() != 8+4+2 {
 		test.Errorf("hip: %d triangles, %v", hip.TriangleCount(), err)
 	}
-	flat, err := houseWithRoof("flat", []bool{false, true, false, true})
+	none := math.Inf(-1)
+	flat, err := houseWithRoof("flat", []float64{none, 6, none, 6})
 	if err != nil || flat.TriangleCount() != 4+2 {
-		test.Errorf("flat with two shared walls: %d triangles, want 6, %v", flat.TriangleCount(), err)
+		test.Errorf("flat with two walls covered: %d triangles, want 6, %v", flat.TriangleCount(), err)
+	}
+	taller, err := houseWithRoof("flat", []float64{none, 4, none, none})
+	if err != nil || taller.TriangleCount() != 8+2 {
+		test.Errorf("a wall covered up to 4 m of 6 keeps its top: %d triangles, want 10, %v", taller.TriangleCount(), err)
 	}
 	if _, err := houseWithRoof("dome", nil); err == nil {
 		test.Error("an unknown recipe should be reported")

@@ -3,6 +3,8 @@
 package block
 
 import (
+	"math"
+
 	"github.com/akrck02/go-scene-builder/mapdata"
 	"github.com/akrck02/go-scene-builder/style"
 )
@@ -15,7 +17,15 @@ type Block struct {
 	Bottom  float64         // metres: where the walls start (a little below the ground)
 	Eaves   float64         // metres: where the walls end and the roof starts
 	Facing  *Facing         // the side towards a street; nil when no street is near
-	Shared  []bool          // for every side of the exterior, whether a neighbour has a wall against it
+	Covered []float64       // for every side of the exterior, up to what height (metres) a neighbour's wall covers it; -Inf = open
+}
+
+// SharedUpTo is how high a neighbour covers a side (-Inf when nothing leans against it).
+func (block *Block) SharedUpTo(side int) float64 {
+	if side >= len(block.Covered) {
+		return math.Inf(-1)
+	}
+	return block.Covered[side]
 }
 
 // Facing is the side of a block that looks onto a street.

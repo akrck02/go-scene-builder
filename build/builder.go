@@ -21,9 +21,9 @@ import (
 	"github.com/twpayne/go-geos"
 )
 
-// chunkSize is the side (km) of the squares the pieces are grouped in, so the viewer only draws
-// the ones in sight.
-const chunkSize = 0.5
+// defaultChunk is the side (km) of the squares the pieces are grouped in, so the viewer only draws
+// the ones in sight; the style's "chunk" changes it (larger for larger maps).
+const defaultChunk = 0.5
 
 // Materials of the basic blocks.
 var (
@@ -56,15 +56,24 @@ func Build(input Input) *Result {
 	if input.Relief != nil {
 		result.Pieces = append(result.Pieces, terrainPieces(input.Relief, input.Rules.Terrain, result.Frame)...)
 	}
+	openings := relations.FindOpenings(input.Map.Features, func(feature *mapdata.Feature) map[string]any {
+		resolved, _ := input.Rules.Resolve(feature.Kind, feature.Properties)
+		where, _ := resolved.Section("openings")["where"].(map[string]any)
+		return where
+	})
+	chunk := defaultChunk
+	if input.Rules.Chunk > 0 {
+		chunk = input.Rules.Chunk
+	}
 	workers := runtime.NumCPU()
 	outputs := make([]*workerOutput, workers)
 	var group sync.WaitGroup
 	for worker := range workers {
-		outputs[worker] = newWorkerOutput()
+		outputs[worker] = newWorkerOutput(chunk)
 		group.Add(1)
 		go func() {
 			defer group.Done()
-			builder := &featureBuilder{input: input, frame: result.Frame, context: geos.NewContext(), output: outputs[worker]}
+			builder := &featureBuilder{input: input, frame: result.Frame, context: geos.NewContext(), output: outputs[worker], openings: openings}
 			for index := worker; index < len(input.Map.Features); index += workers {
 				builder.build(input.Map.Features[index])
 			}
@@ -77,7 +86,7 @@ func Build(input Input) *Result {
 	}
 	relations.Compute(blocks, input.Map.Features, input.Rules.Relations)
 	result.count(blocks)
-	outputs = append(outputs, decorate(blocks, result.Frame, workers)...)
+	outputs = append(outputs, decorate(blocks, result.Frame, workers, chunk)...)
 	result.gather(outputs)
 	return result
 }
@@ -88,8 +97,8 @@ func (result *Result) count(blocks []*block.Block) {
 		if current.Facing != nil {
 			result.Facing++
 		}
-		for _, shared := range current.Shared {
-			if shared {
+		for side := range current.Polygon.Exterior {
+			if current.SharedUpTo(side) > current.Bottom {
 				result.Shared++
 			}
 		}
@@ -97,11 +106,11 @@ func (result *Result) count(blocks []*block.Block) {
 }
 
 // decorate runs the recipes of every block, spread over the processor's cores.
-func decorate(blocks []*block.Block, frame mesh.Frame, workers int) []*workerOutput {
+func decorate(blocks []*block.Block, frame mesh.Frame, workers int, chunk float64) []*workerOutput {
 	outputs := make([]*workerOutput, workers)
 	var group sync.WaitGroup
 	for worker := range workers {
-		outputs[worker] = newWorkerOutput()
+		outputs[worker] = newWorkerOutput(chunk)
 		group.Add(1)
 		go func() {
 			defer group.Done()
@@ -132,6 +141,7 @@ func frameOf(input Input) mesh.Frame {
 
 // workerOutput is what one worker built: pieces by material and chunk, roles and warnings.
 type workerOutput struct {
+	chunk    float64
 	blocks   []*block.Block
 	pieces   map[pieceKey]*mesh.Piece
 	roles    map[string]int
@@ -143,13 +153,13 @@ type pieceKey struct {
 	column, row int
 }
 
-func newWorkerOutput() *workerOutput {
-	return &workerOutput{pieces: map[pieceKey]*mesh.Piece{}, roles: map[string]int{}}
+func newWorkerOutput(chunk float64) *workerOutput {
+	return &workerOutput{pieces: map[pieceKey]*mesh.Piece{}, roles: map[string]int{}, chunk: chunk}
 }
 
 // piece returns the piece of a material for the chunk a map position falls in.
 func (output *workerOutput) piece(material mesh.Material, east, north float64) *mesh.Piece {
-	key := pieceKey{material.Name, int(math.Floor(east / chunkSize)), int(math.Floor(north / chunkSize))}
+	key := pieceKey{material.Name, int(math.Floor(east / output.chunk)), int(math.Floor(north / output.chunk))}
 	if piece, known := output.pieces[key]; known {
 		return piece
 	}
@@ -196,10 +206,11 @@ func (result *Result) gather(outputs []*workerOutput) {
 // featureBuilder builds the blocks of features with one GEOS context (contexts are not shared
 // between goroutines).
 type featureBuilder struct {
-	input   Input
-	frame   mesh.Frame
-	context *geos.Context
-	output  *workerOutput
+	input    Input
+	frame    mesh.Frame
+	context  *geos.Context
+	output   *workerOutput
+	openings relations.Openings
 }
 
 func (builder *featureBuilder) warn(feature *mapdata.Feature, format string, values ...any) {
@@ -225,7 +236,9 @@ func (builder *featureBuilder) build(feature *mapdata.Feature) {
 		err = builder.volume(feature, resolved, shape)
 	case "line":
 		err = builder.line(feature, resolved, shape)
-	case "none", "point":
+	case "point":
+		err = builder.point(feature, resolved, shape)
+	case "none":
 	default:
 		err = fmt.Errorf("unknown role %q", role)
 	}

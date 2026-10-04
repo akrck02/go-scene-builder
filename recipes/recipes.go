@@ -25,16 +25,22 @@ type Decorator struct {
 
 // Decorate adds the walls and the roof of a block to a piece.
 func (decorator *Decorator) Decorate(current *block.Block, piece *mesh.Piece) error {
-	walls, err := current.Style.Section("walls").Color("color", [4]float32{0.8, 0.78, 0.72, 1})
+	walls, err := current.Style.Section("walls").Color("color", current.Feature.Properties, [4]float32{0.8, 0.78, 0.72, 1})
 	if err != nil {
 		return err
 	}
-	decorator.walls(current, piece, walls)
 	roof := current.Style.Section("roof")
 	switch recipe := roof.Text("recipe", "flat"); recipe {
 	case "flat":
+		decorator.walls(current, piece, walls)
 		return decorator.flatRoof(current, piece, roof)
 	case "gable", "hip":
+		// a sloped roof covers the smallest rectangle around the footprint; the walls follow that
+		// rectangle too, or gaps would show between them and the gable ends
+		if rectangle := decorator.rectangle(current); rectangle != nil {
+			current = onRectangle(current, rectangle)
+		}
+		decorator.walls(current, piece, walls)
 		return decorator.slopedRoof(current, piece, roof, walls, recipe == "hip")
 	default:
 		return fmt.Errorf("unknown roof recipe %q", recipe)

@@ -65,3 +65,14 @@ func TestLinearColor(test *testing.T) {
 		test.Error("a name is not a colour")
 	}
 }
+
+func TestColorFromAProperty(test *testing.T) {
+	section := Style{"color": "@color"}
+	color, err := section.Color("color", map[string]any{"color": "#ffffff"}, [4]float32{})
+	if err != nil || color != [4]float32{1, 1, 1, 1} {
+		test.Errorf("colour from the property: %v, %v", color, err)
+	}
+	if color, _ := section.Color("color", nil, [4]float32{0, 0, 0, 1}); color != [4]float32{0, 0, 0, 1} {
+		test.Errorf("without the property, the fallback: %v", color)
+	}
+}

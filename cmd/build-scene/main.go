@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/pprof"
 	"sort"
 	"time"
 
@@ -25,7 +26,16 @@ func main() {
 	output := flag.String("out", "scene.glb", "scene to write")
 	title := flag.String("title", "", "title of the scene")
 	showWarnings := flag.Int("warnings", 10, "how many warnings to print")
+	profile := flag.String("profile", "", "write a CPU profile to this file (go tool pprof)")
 	flag.Parse()
+	if *profile != "" {
+		stop, err := startProfile(*profile)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		defer stop()
+	}
 	if *mapPath == "" || *stylePath == "" {
 		fmt.Fprintln(os.Stderr, "usage: build-scene -map map.geojson [-relief relieve.json] -style style.yaml [-out scene.glb]")
 		os.Exit(2)
@@ -34,6 +44,17 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func startProfile(path string) (func(), error) {
+	file, err := os.Create(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := pprof.StartCPUProfile(file); err != nil {
+		return nil, err
+	}
+	return func() { pprof.StopCPUProfile(); file.Close() }, nil
 }
 
 func run(mapPath, reliefPath, stylePath, output, title string, showWarnings int) error {

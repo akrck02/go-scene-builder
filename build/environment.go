@@ -4,7 +4,9 @@ import "math"
 
 // Environment is the scene extras the renderer reads: the sun from the style's "environment.sun"
 // ([azimuth, elevation] in degrees, azimuth clockwise from north), fog from the size of the
-// scene, a sea only when "environment.water_level" (metres) is given, and true heights.
+// scene, a sea only when "environment.water_level" (metres) is given, and the vertical
+// exaggeration the viewer shows from above ("environment.vertical_scale", 1 by default; walking
+// always uses true heights).
 func (result *Result) Environment(settings map[string]any, extentKilometres float64) map[string]any {
 	azimuth, elevation := 235.0, 38.0
 	if sun, isList := settings["sun"].([]any); isList && len(sun) == 2 {
@@ -15,7 +17,10 @@ func (result *Result) Environment(settings map[string]any, extentKilometres floa
 	environment := map[string]any{
 		"sunDirection":  []float64{math.Sin(azimuth) * math.Cos(elevation), math.Sin(elevation), -math.Cos(azimuth) * math.Cos(elevation)},
 		"fog":           map[string]any{"near": extentKilometres * 1.1, "far": extentKilometres * 3},
-		"verticalScale": 1,
+		"verticalScale": 1.0,
+	}
+	if scale, present := toNumber(settings["vertical_scale"]); present && scale > 0 {
+		environment["verticalScale"] = scale
 	}
 	if level, present := toNumber(settings["water_level"]); present {
 		environment["water"] = map[string]any{"level": level / 1000, "size": extentKilometres * 14}

@@ -33,35 +33,6 @@ func (builder *featureBuilder) volume(feature *mapdata.Feature, resolved, shape 
 	return nil
 }
 
-// line raises each line of a feature as a wall of "thickness" and "height" metres, in pieces of at
-// most "segment" metres, each sunk "sink" metres below the lowest relief under it.
-func (builder *featureBuilder) line(feature *mapdata.Feature, resolved, shape style.Style) error {
-	values := map[string]float64{"height": 3, "thickness": 1, "segment": 10, "sink": 1.5}
-	for key, fallback := range values {
-		value, err := shape.Number(key, feature.Properties, fallback)
-		if err != nil {
-			return err
-		}
-		values[key] = value
-	}
-	color, err := resolved.Color("color", [4]float32{0.7, 0.68, 0.64, 1})
-	if err != nil {
-		return err
-	}
-	for _, line := range feature.Lines {
-		points := densified(line, values["segment"]/1000)
-		for index := 1; index < len(points); index++ {
-			outline := sideways(points[index-1], points[index], values["thickness"]/2000)
-			if outline == nil || !builder.coversAll(outline) {
-				continue
-			}
-			base := builder.lowestOf(mapdata.Ring{points[index-1], points[index]})
-			builder.prism(mapdata.Polygon{Exterior: outline}, base-values["sink"], base+values["height"], color, color)
-		}
-	}
-	return nil
-}
-
 // coversAll tells whether the relief covers every point (always, without a relief).
 func (builder *featureBuilder) coversAll(points mapdata.Ring) bool {
 	grid := builder.input.Relief

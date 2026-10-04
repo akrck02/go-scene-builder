@@ -13,7 +13,7 @@ var upwards = mesh.Vector{0, 1, 0}
 
 // flatRoof covers the footprint at the eaves.
 func (decorator *Decorator) flatRoof(current *block.Block, piece *mesh.Piece, roof style.Style) error {
-	color, err := roof.Color("color", [4]float32{0.5, 0.3, 0.2, 1})
+	color, err := roof.Color("color", current.Feature.Properties, [4]float32{0.5, 0.3, 0.2, 1})
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func (decorator *Decorator) slopedRoof(current *block.Block, piece *mesh.Piece, 
 		}
 		values[key] = value
 	}
-	color, err := roof.Color("color", [4]float32{0.5, 0.3, 0.2, 1})
+	color, err := roof.Color("color", current.Feature.Properties, [4]float32{0.5, 0.3, 0.2, 1})
 	if err != nil {
 		return err
 	}
