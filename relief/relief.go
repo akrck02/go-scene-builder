@@ -17,12 +17,12 @@ import (
 
 // Relief is a grid of heights in metres over kilometres east and north.
 type Relief struct {
-	Columns int     `json:"columns"`
-	Rows    int     `json:"rows"`
-	Cell    float64 `json:"cell"`
-	West    float64 `json:"west"`
-	North   float64 `json:"north"`
-	Units   string  `json:"units"`
+	Columns int       `json:"columns"`
+	Rows    int       `json:"rows"`
+	Cell    float64   `json:"cell"`
+	West    float64   `json:"west"`
+	North   float64   `json:"north"`
+	Units   string    `json:"units"`
 	Heights []float32 `json:"-"`
 }
 

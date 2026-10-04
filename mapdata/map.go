@@ -117,8 +117,8 @@ func identifierOf(value any) string {
 
 // conversion turns file coordinates into kilometres east and north.
 type conversion struct {
-	scale      float64
-	northSign  float64
+	scale     float64
+	northSign float64
 }
 
 func conversionOf(properties map[string]any) (conversion, error) {
