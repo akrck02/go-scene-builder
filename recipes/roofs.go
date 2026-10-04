@@ -38,7 +38,7 @@ func (decorator *Decorator) flatRoof(current *block.Block, piece *mesh.Piece, ro
 // slopedRoof puts a gable or hip roof over the smallest rectangle around the footprint: two slopes
 // from the eaves (lowered by the overhang) up to the ridge, and two gable ends (wall colour) or
 // two more slopes (hip).
-func (decorator *Decorator) slopedRoof(current *block.Block, piece *mesh.Piece, roof style.Style, walls [4]float32, hip bool) error {
+func (decorator *Decorator) slopedRoof(current *block.Block, piece, wallPiece *mesh.Piece, roof style.Style, walls [4]float32, hip bool) error {
 	values := map[string]float64{"pitch": 38, "eaves": 0.5}
 	for key, fallback := range values {
 		value, err := roof.Number(key, current.Feature.Properties, fallback)
@@ -56,7 +56,7 @@ func (decorator *Decorator) slopedRoof(current *block.Block, piece *mesh.Piece, 
 		return decorator.flatRoof(current, piece, roof)
 	}
 	corners = alongRidge(corners, roof.Text("ridge", "long"), current.Facing)
-	decorator.addSlopes(piece, corners, current.Eaves, values["pitch"], values["eaves"]/1000, hip, color, walls)
+	decorator.addSlopes(piece, wallPiece, corners, current.Eaves, values["pitch"], values["eaves"]/1000, hip, color, walls)
 	return nil
 }
 
@@ -97,7 +97,7 @@ func alongRidge(corners mapdata.Ring, ridge string, facing *block.Facing) mapdat
 	return corners
 }
 
-func (decorator *Decorator) addSlopes(piece *mesh.Piece, corners mapdata.Ring, eaves, pitch, overhang float64, hip bool, color, walls [4]float32) {
+func (decorator *Decorator) addSlopes(piece, wallPiece *mesh.Piece, corners mapdata.Ring, eaves, pitch, overhang float64, hip bool, color, walls [4]float32) {
 	along, across := mapdata.Direction(corners[0], corners[1]), mapdata.Direction(corners[0], corners[3])
 	halfWidth := mapdata.Distance(corners[0], corners[3]) / 2
 	halfLength := mapdata.Distance(corners[0], corners[1]) / 2
@@ -125,7 +125,7 @@ func (decorator *Decorator) addSlopes(piece *mesh.Piece, corners mapdata.Ring, e
 	}
 	for _, end := range [][3]mapdata.Point{{corners[1], corners[2], along}, {corners[3], corners[0], {-along[0], -along[1]}}} {
 		apex := mapdata.Middle(end[0], end[1])
-		piece.AddTriangle(decorator.at([]float64{end[0][0], end[0][1]}, eaves), decorator.at([]float64{end[1][0], end[1][1]}, eaves),
+		wallPiece.AddTriangle(decorator.at([]float64{end[0][0], end[0][1]}, eaves), decorator.at([]float64{end[1][0], end[1][1]}, eaves),
 			decorator.at([]float64{apex[0], apex[1]}, ridgeHeight-0.02), mesh.SceneDirection(end[2][0], end[2][1], 0), walls)
 	}
 }

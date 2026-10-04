@@ -5,6 +5,7 @@ import (
 
 	"github.com/akrck02/go-scene-builder/mapdata"
 	"github.com/akrck02/go-scene-builder/mesh"
+	"github.com/akrck02/go-scene-builder/recipes"
 	"github.com/akrck02/go-scene-builder/style"
 )
 
@@ -25,8 +26,9 @@ func (builder *featureBuilder) ground(feature *mapdata.Feature, resolved, shape 
 	if err != nil {
 		return err
 	}
+	builder.plantingsOf(feature, resolved)
 	for _, corners := range builder.triangles(polygons) {
-		builder.drape(groundMaterial, corners, color, func(point mapdata.Point) float64 { return builder.height(point[0], point[1]) + lift })
+		builder.drape(recipes.MaterialOf(groundMaterial, resolved), corners, color, func(point mapdata.Point) float64 { return builder.height(point[0], point[1]) + lift })
 	}
 	return nil
 }
@@ -61,7 +63,7 @@ func (builder *featureBuilder) water(feature *mapdata.Feature, resolved, shape s
 		level = func(mapdata.Point) float64 { return lowest + aboveBed }
 	}
 	for _, corners := range builder.triangles(polygons) {
-		builder.drape(waterMaterial, corners, color, level)
+		builder.drape(recipes.MaterialOf(waterMaterial, resolved), corners, color, level)
 	}
 	return nil
 }

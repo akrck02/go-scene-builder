@@ -108,12 +108,15 @@ func Build(input Input) *Result {
 	}
 	group.Wait()
 	var blocks []*block.Block
+	var plantings []planting
 	for _, output := range outputs {
 		blocks = append(blocks, output.blocks...)
+		plantings = append(plantings, output.plantings...)
 	}
 	relations.Compute(blocks, input.related(), input.Rules.Relations)
 	result.count(blocks)
 	outputs = append(outputs, decorate(blocks, result.Frame, workers, chunk)...)
+	outputs = append(outputs, sow(plantings, blocks, input, result.Frame, chunk)...)
 	result.gather(outputs)
 	return result
 }
@@ -145,7 +148,8 @@ func decorate(blocks []*block.Block, frame mesh.Frame, workers int, chunk float6
 			for index := worker; index < len(blocks); index += workers {
 				current := blocks[index]
 				first := current.Polygon.Exterior[0]
-				if err := decorator.Decorate(current, outputs[worker].piece(solidMaterial, first[0], first[1])); err != nil {
+				pieceFor := func(material mesh.Material) *mesh.Piece { return outputs[worker].piece(material, first[0], first[1]) }
+				if err := decorator.Decorate(current, pieceFor); err != nil {
 					outputs[worker].warnings = append(outputs[worker].warnings, fmt.Sprintf("%s (%s): %v", current.Feature.Identifier, current.Feature.Kind, err))
 				}
 			}
@@ -168,11 +172,12 @@ func frameOf(input Input) mesh.Frame {
 
 // workerOutput is what one worker built: pieces by material and chunk, roles and warnings.
 type workerOutput struct {
-	chunk    float64
-	blocks   []*block.Block
-	pieces   map[pieceKey]*mesh.Piece
-	roles    map[string]int
-	warnings []string
+	chunk     float64
+	blocks    []*block.Block
+	plantings []planting
+	pieces    map[pieceKey]*mesh.Piece
+	roles     map[string]int
+	warnings  []string
 }
 
 type pieceKey struct {

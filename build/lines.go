@@ -6,6 +6,8 @@ import (
 
 	"github.com/akrck02/go-scene-builder/block"
 	"github.com/akrck02/go-scene-builder/mapdata"
+	"github.com/akrck02/go-scene-builder/mesh"
+	"github.com/akrck02/go-scene-builder/recipes"
 	"github.com/akrck02/go-scene-builder/style"
 )
 
@@ -27,6 +29,7 @@ func (builder *featureBuilder) line(feature *mapdata.Feature, resolved, shape st
 	if err != nil {
 		return err
 	}
+	material := recipes.MaterialOf(solidMaterial, resolved)
 	width, err := resolved.Section("openings").Number("width", feature.Properties, 6)
 	if err != nil {
 		return err
@@ -34,13 +37,13 @@ func (builder *featureBuilder) line(feature *mapdata.Feature, resolved, shape st
 	for _, line := range feature.Lines {
 		gaps := openingsAlong(line, builder.openings[feature], width/2000)
 		if shape.Text("follow", "ground") == "level" {
-			builder.levelLine(line, values, color)
+			builder.levelLine(line, values, color, material)
 		} else {
 			for _, part := range withoutGaps(line, gaps) {
-				builder.groundLine(part, values, color)
+				builder.groundLine(part, values, color, material)
 			}
 		}
-		if err := builder.gateTowers(feature, resolved, line, gaps, color); err != nil {
+		if err := builder.gateTowers(feature, resolved, line, gaps, color, material); err != nil {
 			return err
 		}
 	}
@@ -59,7 +62,7 @@ func numbers(section style.Style, properties map[string]any, defaults map[string
 	return values, nil
 }
 
-func (builder *featureBuilder) groundLine(line []mapdata.Point, values map[string]float64, color [4]float32) {
+func (builder *featureBuilder) groundLine(line []mapdata.Point, values map[string]float64, color [4]float32, material mesh.Material) {
 	points := densified(line, values["segment"]/1000)
 	for index := 1; index < len(points); index++ {
 		outline := sideways(points[index-1], points[index], values["thickness"]/2000)
@@ -67,18 +70,18 @@ func (builder *featureBuilder) groundLine(line []mapdata.Point, values map[strin
 			continue
 		}
 		base := builder.lowestOf(mapdata.Ring{points[index-1], points[index]})
-		builder.prism(mapdata.Polygon{Exterior: outline}, base-values["sink"], base+values["height"], color, color)
+		builder.prism(mapdata.Polygon{Exterior: outline}, base-values["sink"], base+values["height"], color, color, material)
 	}
 }
 
-func (builder *featureBuilder) levelLine(line []mapdata.Point, values map[string]float64, color [4]float32) {
+func (builder *featureBuilder) levelLine(line []mapdata.Point, values map[string]float64, color [4]float32, material mesh.Material) {
 	if !builder.coversAll(mapdata.Ring(line)) {
 		return
 	}
 	top := math.Max(builder.height(line[0][0], line[0][1]), builder.height(line[len(line)-1][0], line[len(line)-1][1])) + values["height"]
 	for index := 1; index < len(line); index++ {
 		if outline := sideways(line[index-1], line[index], values["thickness"]/2000); outline != nil {
-			builder.prism(mapdata.Polygon{Exterior: outline}, top-values["height"]-values["sink"], top, color, color)
+			builder.prism(mapdata.Polygon{Exterior: outline}, top-values["height"]-values["sink"], top, color, color, material)
 		}
 	}
 }
@@ -160,7 +163,7 @@ func pointAlong(from, to mapdata.Point, share float64) mapdata.Point {
 }
 
 // gateTowers raises, for the gate_towers recipe, a square tower on the line at each side of every gap.
-func (builder *featureBuilder) gateTowers(feature *mapdata.Feature, resolved style.Style, line []mapdata.Point, gaps []gap, color [4]float32) error {
+func (builder *featureBuilder) gateTowers(feature *mapdata.Feature, resolved style.Style, line []mapdata.Point, gaps []gap, color [4]float32, material mesh.Material) error {
 	decorations, _ := resolved["decorate"].([]any)
 	for _, entry := range decorations {
 		settings := style.Style(asMap(entry))
@@ -179,21 +182,21 @@ func (builder *featureBuilder) gateTowers(feature *mapdata.Feature, resolved sty
 		for _, stretch := range gaps {
 			for _, along := range []float64{stretch.from - half, stretch.to + half} {
 				centre, direction := pointAndDirection(line, along)
-				builder.tower(centre, direction, half, values, towerColor)
+				builder.tower(centre, direction, half, values, towerColor, material)
 			}
 		}
 	}
 	return nil
 }
 
-func (builder *featureBuilder) tower(centre, direction mapdata.Point, half float64, values map[string]float64, color [4]float32) {
+func (builder *featureBuilder) tower(centre, direction mapdata.Point, half float64, values map[string]float64, color [4]float32, material mesh.Material) {
 	outline := sideways(mapdata.Point{centre[0] - direction[0]*half, centre[1] - direction[1]*half},
 		mapdata.Point{centre[0] + direction[0]*half, centre[1] + direction[1]*half}, half)
 	if outline == nil || !builder.coversAll(outline) {
 		return
 	}
 	base := builder.lowestOf(outline)
-	builder.prism(mapdata.Polygon{Exterior: outline}, base-values["sink"], base+values["height"], color, color)
+	builder.prism(mapdata.Polygon{Exterior: outline}, base-values["sink"], base+values["height"], color, color, material)
 }
 
 // pointAndDirection is the point at a distance along a line and the line's direction there.
@@ -243,7 +246,7 @@ func (builder *featureBuilder) point(feature *mapdata.Feature, resolved, shape s
 		}
 		base := builder.lowestOf(outline)
 		builder.output.blocks = append(builder.output.blocks, &block.Block{Feature: feature, Style: resolved,
-			Polygon: mapdata.Polygon{Exterior: outline}, Bottom: base - values["sink"], Eaves: base + values["height"]})
+			Polygon: mapdata.Polygon{Exterior: outline}, Ground: base, Bottom: base - values["sink"], Eaves: base + values["height"]})
 	}
 	return nil
 }

@@ -17,7 +17,7 @@ func houseWithRoof(recipe string, covered []float64) (*mesh.Piece, error) {
 		Style: style.Style{"roof": map[string]any{"recipe": recipe, "pitch": 45.0, "eaves": 0.0, "ridge": "long"}}}
 	piece := &mesh.Piece{}
 	decorator := &Decorator{Context: geos.NewContext()}
-	return piece, decorator.Decorate(current, piece)
+	return piece, decorator.Decorate(current, func(mesh.Material) *mesh.Piece { return piece })
 }
 
 func highest(piece *mesh.Piece) float64 {

@@ -28,7 +28,7 @@ func (builder *featureBuilder) volume(feature *mapdata.Feature, resolved, shape 
 		base := builder.lowestOf(polygon.Exterior)
 		polygon.Exterior = polygon.Exterior.Anticlockwise()
 		builder.output.blocks = append(builder.output.blocks,
-			&block.Block{Feature: feature, Style: resolved, Polygon: polygon, Bottom: base - sink, Eaves: base + height})
+			&block.Block{Feature: feature, Style: resolved, Polygon: polygon, Ground: base, Bottom: base - sink, Eaves: base + height})
 	}
 	return nil
 }
@@ -53,8 +53,8 @@ func (builder *featureBuilder) lowestOf(points mapdata.Ring) float64 {
 }
 
 // prism adds walls around every ring of a polygon and a flat top, all in the chunk of its first corner.
-func (builder *featureBuilder) prism(polygon mapdata.Polygon, bottom, top float64, walls, roof [4]float32) {
-	piece := builder.output.piece(solidMaterial, polygon.Exterior[0][0], polygon.Exterior[0][1])
+func (builder *featureBuilder) prism(polygon mapdata.Polygon, bottom, top float64, walls, roof [4]float32, material mesh.Material) {
+	piece := builder.output.piece(material, polygon.Exterior[0][0], polygon.Exterior[0][1])
 	for index, ring := range append([]mapdata.Ring{polygon.Exterior}, polygon.Holes...) {
 		outwards := 1.0 // walls of the exterior face out; walls of holes face into the hole
 		if index > 0 {

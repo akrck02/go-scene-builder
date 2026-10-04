@@ -76,3 +76,20 @@ func TestColorFromAProperty(test *testing.T) {
 		test.Errorf("without the property, the fallback: %v", color)
 	}
 }
+
+func TestPalettes(test *testing.T) {
+	section := Style{"color": []any{"#ff0000", "#00ff00", "#0000ff"}}
+	seen := map[[4]float32]bool{}
+	for index := range 30 {
+		properties := map[string]any{"id": index}
+		first, err := section.Color("color", properties, [4]float32{})
+		again, _ := section.Color("color", properties, [4]float32{})
+		if err != nil || first != again {
+			test.Fatalf("a feature always gets the same colour: %v, %v, %v", first, again, err)
+		}
+		seen[first] = true
+	}
+	if len(seen) != 3 {
+		test.Errorf("30 features should use all 3 colours, used %d", len(seen))
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/akrck02/go-scene-builder/mesh"
+	"github.com/akrck02/go-scene-builder/recipes"
 	"github.com/akrck02/go-scene-builder/relief"
 	"github.com/akrck02/go-scene-builder/style"
 )
@@ -17,7 +18,7 @@ var terrainMaterial = mesh.Material{Name: "terrain", Kind: "lit"}
 // terrainPieces turns the relief into walkable pieces: a vertex on every cell centre, two
 // triangles per square, smooth normals, and the colour of the style's "terrain" section:
 //
-//	terrain: {color: "#6b7f47", bands: [{above: 350, color: "#9e9e99", blend: 30}]}
+//	terrain: {color: "#6b7f47", bands: [{above: 350, color: "#9e9e99", blend: 30}], material: {pattern: grass, scale: 2}}
 //
 // where each band takes over above a height, blending over "blend" metres.
 func terrainPieces(grid *relief.Relief, settings map[string]any, frame mesh.Frame) []*mesh.Piece {
@@ -26,7 +27,8 @@ func terrainPieces(grid *relief.Relief, settings map[string]any, frame mesh.Fram
 	for firstRow := 0; firstRow < grid.Rows-1; firstRow += terrainChunk {
 		for firstColumn := 0; firstColumn < grid.Columns-1; firstColumn += terrainChunk {
 			lastRow, lastColumn := min(firstRow+terrainChunk, grid.Rows-1), min(firstColumn+terrainChunk, grid.Columns-1)
-			piece := &mesh.Piece{Name: fmt.Sprintf("terrain %d,%d", firstRow/terrainChunk, firstColumn/terrainChunk), Material: terrainMaterial, Ground: true}
+			piece := &mesh.Piece{Name: fmt.Sprintf("terrain %d,%d", firstRow/terrainChunk, firstColumn/terrainChunk),
+				Material: recipes.MaterialOf(terrainMaterial, style.Style(settings)), Ground: true}
 			for row := firstRow; row <= lastRow; row++ {
 				for column := firstColumn; column <= lastColumn; column++ {
 					east, north := grid.CellCentre(row, column)

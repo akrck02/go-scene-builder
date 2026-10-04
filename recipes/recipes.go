@@ -23,25 +23,37 @@ type Decorator struct {
 	Context *geos.Context
 }
 
-// Decorate adds the walls and the roof of a block to a piece.
-func (decorator *Decorator) Decorate(current *block.Block, piece *mesh.Piece) error {
-	walls, err := current.Style.Section("walls").Color("color", current.Feature.Properties, [4]float32{0.8, 0.78, 0.72, 1})
+// PieceFor returns the piece where geometry of a material goes.
+type PieceFor func(material mesh.Material) *mesh.Piece
+
+// Decorate adds the walls and the roof of a block, each to the piece of its material.
+func (decorator *Decorator) Decorate(current *block.Block, pieceFor PieceFor) error {
+	wallSection := current.Style.Section("walls")
+	walls, err := wallSection.Color("color", current.Feature.Properties, [4]float32{0.8, 0.78, 0.72, 1})
 	if err != nil {
 		return err
 	}
+	wallPiece := pieceFor(MaterialOf(WallMaterial, wallSection))
 	roof := current.Style.Section("roof")
+	roofPiece := pieceFor(MaterialOf(RoofMaterial, roof))
 	switch recipe := roof.Text("recipe", "flat"); recipe {
 	case "flat":
-		decorator.walls(current, piece, walls)
-		return decorator.flatRoof(current, piece, roof)
+		decorator.walls(current, wallPiece, walls)
+		if err := decorator.facade(current, pieceFor); err != nil {
+			return err
+		}
+		return decorator.flatRoof(current, roofPiece, roof)
 	case "gable", "hip":
 		// a sloped roof covers the smallest rectangle around the footprint; the walls follow that
 		// rectangle too, or gaps would show between them and the gable ends
 		if rectangle := decorator.rectangle(current); rectangle != nil {
 			current = onRectangle(current, rectangle)
 		}
-		decorator.walls(current, piece, walls)
-		return decorator.slopedRoof(current, piece, roof, walls, recipe == "hip")
+		decorator.walls(current, wallPiece, walls)
+		if err := decorator.facade(current, pieceFor); err != nil {
+			return err
+		}
+		return decorator.slopedRoof(current, roofPiece, wallPiece, roof, walls, recipe == "hip")
 	default:
 		return fmt.Errorf("unknown roof recipe %q", recipe)
 	}

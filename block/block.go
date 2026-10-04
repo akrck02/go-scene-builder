@@ -14,6 +14,7 @@ type Block struct {
 	Feature *mapdata.Feature
 	Style   style.Style
 	Polygon mapdata.Polygon // exterior anticlockwise
+	Ground  float64         // metres: the lowest ground under the footprint (doors stand on it)
 	Bottom  float64         // metres: where the walls start (a little below the ground)
 	Eaves   float64         // metres: where the walls end and the roof starts
 	Facing  *Facing         // the side towards a street; nil when no street is near

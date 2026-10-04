@@ -40,9 +40,14 @@ func (style Style) Number(key string, properties map[string]any, fallback float6
 }
 
 // Color returns a colour written as "#rrggbb" (sRGB), in the linear RGBA that glTF uses, or
-// "@name" to take it from the feature's property "name" (falling back when it has none).
+// "@name" to take it from the feature's property "name" (falling back when it has none). A list of
+// colours is a palette: each feature takes one, always the same, chosen by its "id" property.
 func (style Style) Color(key string, properties map[string]any, fallback [4]float32) ([4]float32, error) {
-	text, isText := style[key].(string)
+	value := style[key]
+	if palette, isList := value.([]any); isList && len(palette) > 0 {
+		value = palette[Pick(properties, key, len(palette))]
+	}
+	text, isText := value.(string)
 	if !isText {
 		return fallback, nil
 	}

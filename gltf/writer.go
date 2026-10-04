@@ -162,6 +162,10 @@ func (output *writer) material(material mesh.Material) int {
 	if material.DepthBias > 0 {
 		extras["depthBias"] = material.DepthBias
 	}
+	if material.Pattern != "" {
+		extras["pattern"] = material.Pattern
+		extras["patternScale"] = material.PatternScale / 1000 // metres to the scene's kilometres
+	}
 	output.document.Materials = append(output.document.Materials, materialEntry{
 		Name:        material.Name,
 		Metallic:    map[string]any{"baseColorFactor": []float32{1, 1, 1, 1}, "metallicFactor": 0, "roughnessFactor": 0.9},

@@ -53,10 +53,12 @@ func SceneDirection(east, north, up float64) Vector {
 
 // Material is how a piece is drawn.
 type Material struct {
-	Name        string
-	Kind        string // "lit" or "water", as the renderer understands them
-	DoubleSided bool
-	DepthBias   float64 // the renderer draws it a little nearer, so flat ground pieces do not flicker
+	Name         string
+	Kind         string // "lit", "glow" (shines in the dark) or "water", as the renderer understands them
+	DoubleSided  bool
+	DepthBias    float64 // the renderer draws it a little nearer, so flat ground pieces do not flicker
+	Pattern      string  // procedural surface pattern: cobbles, masonry, plaster, shingles, planks, grass
+	PatternScale float64 // metres per pattern cell (a stone, a course of blocks, a row of shingles)
 }
 
 // Piece is a mesh with one material.

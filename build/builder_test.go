@@ -38,10 +38,13 @@ func TestVolumeFacesOutwards(test *testing.T) {
 	building := &mapdata.Feature{Identifier: "house", Kind: "building", Properties: map[string]any{"floors": 2.0},
 		Polygons: []mapdata.Polygon{square(0.01)}}
 	result := Build(testInput(test, building))
-	if len(result.Pieces) != 1 {
-		test.Fatalf("one piece expected, got %d", len(result.Pieces))
+	if len(result.Pieces) != 2 {
+		test.Fatalf("walls and roof expected, got %d pieces", len(result.Pieces))
 	}
-	piece := result.Pieces[0]
+	piece := &mesh.Piece{}
+	for _, part := range result.Pieces {
+		piece.Append(part)
+	}
 	if piece.TriangleCount() != 4*2+2 {
 		test.Errorf("4 walls and a top: %d triangles", piece.TriangleCount())
 	}

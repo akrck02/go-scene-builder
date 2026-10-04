@@ -9,12 +9,13 @@ map and the rules do.
 map + relief → 1 basic blocks → 2 relations → 3 style rules → 4 decoration → pieces → .glb / live scene
 ```
 
-Done so far (phases 1 to 4): reading maps, reliefs and rules; the basic blocks (terrain, draped
+Done so far (phases 1 to 5): reading maps, reliefs and rules; the basic blocks (terrain, draped
 ground, level water, volumes, lines, points); the relations between blocks (the side that faces a
 street, the walls neighbours share, the gaps where lines cross); recipes for walls, roofs (flat,
-gable, hip) and gate towers; a quantised `.glb` writer; `build-scene`; and use as a library from
-go-simulator, which draws live simulations with it (`scene_style` in its rules files). Next:
-windows, chimneys and trees (phase 5), and levels of detail for large terrains.
+gable, hip), gate towers, facades (door, windows, shutters, flower boxes, an emblem, lamps) and
+plants (shrubs, trees, flower beds); materials with procedural patterns and glowing materials;
+colour palettes; a quantised `.glb` writer; `build-scene`; and use as a library from go-simulator.
+Next: balconies, chimneys and more decorations, and levels of detail for large terrains.
 
 As a library, `build.Build` also takes `Heights` (any source of ground heights, for a scene whose
 terrain exists already), `Detail` (the longest side of draped triangles without a relief) and
@@ -86,6 +87,11 @@ the roof starts), `line` (prisms of
 one level prism whose top is `height` over its highest end, like a bridge deck), `point` (a square
 or round block of `size` metres, decorated like volumes) and `none`.
 
+Every part can set its material: `material: {pattern: cobbles, scale: 0.35}` (cobbles, masonry,
+plaster, shingles, planks or grass, metres per cell; go-renderer draws the pattern) or
+`material: {kind: glow}` (shines in the dark). A colour can be a palette, a list: each feature takes
+one, always the same, by its id.
+
 Volumes are decorated by recipes: `walls` (colour; where a neighbour leans against a wall only the
 part above its eaves is drawn) and `roof`: `recipe`
 `flat`, `gable` or `hip`, with `pitch` (degrees), `eaves` (overhang, metres), `color` and `ridge`:
@@ -98,3 +104,10 @@ the footprint's smallest rectangle, like the roof.
 Scene coordinates in kilometres, x east, y up, z south, centred on the origin. Pieces are grouped
 by material in 0.5 km squares so the viewer draws only those in sight; terrain pieces are marked
 walkable (`ground`). The scene extras carry the sun, fog, an optional sea and `verticalScale: 1`.
+
+### Facades and plants
+
+`facade` dresses the side of a volume that faces a street: `door`, `windows` (with `shutters`),
+`flower_boxes` (with `flowers`, some `glowing`), `emblem` (a six-petal flower above the door) and
+`lamp`; see `recipes/facade.go`. On ground features, `decorate: [{recipe: plants, …}]` sows shrubs,
+trees and flower beds, never on a volume; see `build/plants.go`.
