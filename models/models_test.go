@@ -2,6 +2,7 @@ package models
 
 import (
 	"math"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"testing"
@@ -98,5 +99,58 @@ models:
 	}
 	if len(crown.Details) != 2 || crown.Details[0].Piece == nil || crown.Details[1].Piece != nil || !crown.Material.Foliage {
 		t.Errorf("the crown becomes one blob, then nothing: %+v", crown.Details)
+	}
+}
+
+const variedLibrary = `
+models:
+  árbol:
+    variants: 3
+    vary: {color: 0.1, warmth: 0.05, scale: [0.8, 1.2]}
+    parts:
+      - {shape: cylinder, radius: 0.3, top_radius: 0.15, height: 4, sides: 6, color: "#5a4030"}
+      - {shape: blob, size: [5, 5, 5], at: [0, 3.5, 0], sides: 12, wobble: 0.2, move: 0.8, grow: 0.2, color: "#56713a"}
+    levels:
+      - {below: 0.01}
+`
+
+func TestVariantsAndCopies(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "models.yaml")
+	os.WriteFile(path, []byte(variedLibrary), 0o644)
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree := loaded.Model("árbol")
+	if len(tree.Variants) != 3 || tree.Variants[0] != tree {
+		t.Fatalf("three variants, the model first: %d", len(tree.Variants))
+	}
+	first, second := tree.Variants[0].Pieces[0], tree.Variants[1].Pieces[0]
+	if len(first.Positions) != len(second.Positions) {
+		t.Fatal("variants of the same parts should have the same vertices")
+	}
+	differ := false
+	for index := range first.Positions {
+		differ = differ || first.Positions[index] != second.Positions[index]
+	}
+	if !differ {
+		t.Error("the variants are all the same")
+	}
+	for _, variant := range tree.Variants {
+		if len(variant.Pieces[0].Details) != 1 {
+			t.Errorf("%s lost its levels of detail", variant.Name)
+		}
+	}
+	random := rand.New(rand.NewPCG(1, 2))
+	seen := map[*Model]bool{}
+	for range 50 {
+		chosen, scale, tint := tree.Copy(random)
+		seen[chosen] = true
+		if scale < 0.8 || scale > 1.2 || tint[1] < 0.9 || tint[1] > 1.1 {
+			t.Fatalf("copy out of range: scale %v, tint %v", scale, tint)
+		}
+	}
+	if len(seen) != 3 {
+		t.Errorf("copies use %d variants", len(seen))
 	}
 }

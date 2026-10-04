@@ -2,6 +2,7 @@ package models
 
 import (
 	"math"
+	"math/rand/v2"
 
 	"github.com/akrck02/go-scene-builder/mesh"
 )
@@ -53,31 +54,139 @@ func addCylinder(piece *mesh.Piece, place placement, bottom, top, height float64
 	}
 }
 
-// addBlob adds a faceted ellipsoid (size [x, y, z] in metres) standing on its placement.
-func addBlob(piece *mesh.Piece, place placement, size [3]float64, sides int, color [4]float32) {
-	sides = max(4, sides)
-	const rings = 4
-	point := func(ring, side int) mesh.Vector {
-		latitude := math.Pi * (float64(ring)/rings - 0.5)
-		longitude := 2 * math.Pi * float64(side) / float64(sides)
-		return place.point(size[0]/2*math.Cos(latitude)*math.Cos(longitude), size[1]/2*(1+math.Sin(latitude)),
-			size[2]/2*math.Cos(latitude)*math.Sin(longitude))
+// blobShape is an ellipsoid standing on its placement: its size in metres, how finely it is cut, how
+// far it bends out of round (a share of its size) and whether it is shaded smooth or in facets.
+type blobShape struct {
+	size         [3]float64
+	sides, rings int
+	wobble       float64
+	seed         uint64
+	smooth       bool
+}
+
+// addBlob adds an ellipsoid (a tree crown, a bush, a flower bud).
+func addBlob(piece *mesh.Piece, place placement, shape blobShape, color [4]float32) {
+	sides, rings := max(4, shape.sides), max(2, shape.rings)
+	bend := newBend(shape.seed)
+	grid := make([][]mesh.Vector, rings+1)
+	for ring := range rings + 1 {
+		grid[ring] = make([]mesh.Vector, sides)
+		latitude := math.Pi * (float64(ring)/float64(rings) - 0.5)
+		for side := range sides {
+			longitude := 2 * math.Pi * float64(side) / float64(sides)
+			direction := [3]float64{math.Cos(latitude) * math.Cos(longitude), math.Sin(latitude), math.Cos(latitude) * math.Sin(longitude)}
+			radius := 1 + shape.wobble*bend.at(direction)
+			grid[ring][side] = place.point(shape.size[0]/2*radius*direction[0], shape.size[1]/2*(1+radius*direction[1]),
+				shape.size[2]/2*radius*direction[2])
+		}
 	}
-	centre := place.point(0, size[1]/2, 0)
+	centre := place.point(0, shape.size[1]/2, 0)
+	if shape.smooth {
+		addSmoothGrid(piece, grid, centre, color)
+		return
+	}
 	for ring := range rings {
 		for side := range sides {
 			next := (side + 1) % sides
-			first, second, third, fourth := point(ring, side), point(ring, next), point(ring+1, next), point(ring+1, side)
+			first, second, third, fourth := grid[ring][side], grid[ring][next], grid[ring+1][next], grid[ring+1][side]
 			outward := first.Add(second).Add(third).Add(fourth).Scale(0.25).Subtract(centre)
-			if ring == 0 {
+			switch ring {
+			case 0:
 				piece.AddTriangle(first, third, fourth, outward, color)
-			} else if ring == rings-1 {
+			case rings - 1:
 				piece.AddTriangle(first, second, third, outward, color)
-			} else {
+			default:
 				piece.AddQuad(first, second, third, fourth, outward, color)
 			}
 		}
 	}
+}
+
+// addSmoothGrid adds a closed surface given as rings of points from the bottom pole to the top one,
+// with a normal at every point from its neighbours, so it is shaded round.
+func addSmoothGrid(piece *mesh.Piece, grid [][]mesh.Vector, centre mesh.Vector, color [4]float32) {
+	rings, sides := len(grid)-1, len(grid[0])
+	indices := make([][]uint32, rings+1)
+	for ring := range rings + 1 {
+		indices[ring] = make([]uint32, sides)
+		for side := range sides {
+			indices[ring][side] = piece.AddVertex(grid[ring][side], smoothNormal(grid, ring, side, centre), color)
+		}
+	}
+	for ring := range rings {
+		for side := range sides {
+			next := (side + 1) % sides
+			if ring > 0 {
+				addFacing(piece, indices[ring][side], indices[ring][next], indices[ring+1][next], centre)
+			}
+			if ring < rings-1 {
+				addFacing(piece, indices[ring][side], indices[ring+1][next], indices[ring+1][side], centre)
+			}
+		}
+	}
+}
+
+// smoothNormal is the normal at a point of a grid of rings, across its neighbours; at the poles,
+// straight down or up.
+func smoothNormal(grid [][]mesh.Vector, ring, side int, centre mesh.Vector) mesh.Vector {
+	rings, sides := len(grid)-1, len(grid[0])
+	var normal mesh.Vector
+	switch ring {
+	case 0:
+		normal = mesh.Vector{0, -1, 0}
+	case rings:
+		normal = upwards
+	default:
+		around := grid[ring][(side+1)%sides].Subtract(grid[ring][(side+sides-1)%sides])
+		along := grid[ring+1][side].Subtract(grid[ring-1][side])
+		normal = around.Cross(along)
+	}
+	if normal.Dot(grid[ring][side].Subtract(centre)) < 0 {
+		normal = normal.Scale(-1)
+	}
+	return normal.Normalized()
+}
+
+// addFacing adds a triangle of existing vertices, turned to face away from a centre.
+func addFacing(piece *mesh.Piece, first, second, third uint32, centre mesh.Vector) {
+	position := func(index uint32) mesh.Vector {
+		return mesh.Vector{float64(piece.Positions[3*index]), float64(piece.Positions[3*index+1]), float64(piece.Positions[3*index+2])}
+	}
+	a, b, c := position(first), position(second), position(third)
+	normal := b.Subtract(a).Cross(c.Subtract(a))
+	if normal.Dot(a.Add(b).Add(c).Scale(1.0/3).Subtract(centre)) < 0 {
+		second, third = third, second
+	}
+	piece.Indices = append(piece.Indices, first, second, third)
+}
+
+// bend is a smooth, repeatable bending of a sphere: a few waves in random directions.
+type bend struct {
+	directions          [4][3]float64
+	frequencies, phases [4]float64
+}
+
+func newBend(seed uint64) bend {
+	random := rand.New(rand.NewPCG(seed, 5))
+	var result bend
+	for wave := range result.directions {
+		z, angle := 2*random.Float64()-1, 2*math.Pi*random.Float64()
+		across := math.Sqrt(1 - z*z)
+		result.directions[wave] = [3]float64{across * math.Cos(angle), across * math.Sin(angle), z}
+		result.frequencies[wave] = 1.5 + 2.5*random.Float64()
+		result.phases[wave] = 2 * math.Pi * random.Float64()
+	}
+	return result
+}
+
+// at is the bending in a direction, about between -1 and 1.
+func (current bend) at(direction [3]float64) float64 {
+	total := 0.0
+	for wave, towards := range current.directions {
+		along := direction[0]*towards[0] + direction[1]*towards[1] + direction[2]*towards[2]
+		total += math.Sin(current.frequencies[wave]*along + current.phases[wave])
+	}
+	return total / 2
 }
 
 // addPetals adds a ring of flat petals around the placement, tilted up from flat; both faces show.

@@ -152,3 +152,12 @@ water at the river's edge (at least three quarters of a relief cell from the axi
 (`follow: level` lines) that cross water keep their underside `clearance` metres (1.5) over it,
 reach out to dry ground and stand on abutments. In a live scene, where the terrain exists already,
 the water stays `above_bed` metres over the ground of its axis and bridges still clear it.
+
+### Variety in models
+
+A model can be built in several variants (`variants: 3`): its parts move (`move`, metres) and change
+size (`grow`, a share) a little in each, and blobs bend out of round their own way (`wobble`, a share
+of their size; blobs are shaded smooth unless `smooth: false`, and `rings` sets how finely they are
+cut). Every copy placed on a map picks a variant and changes its colour, warmth and size
+(`vary: {color: 0.12, warmth: 0.06, scale: [0.8, 1.3]}`), through the instances' tint. Cylinders
+can narrow to `top_radius` (trunks).

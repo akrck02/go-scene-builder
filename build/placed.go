@@ -25,7 +25,8 @@ func (builder *featureBuilder) model(feature *mapdata.Feature, shape style.Style
 			return err
 		}
 		position := builder.frame.Scene(point[0], point[1], builder.height(point[0], point[1]))
-		builder.output.copiesOf(model, point[0], point[1]).Add(position, turn, scale, [4]float32{1, 1, 1, 1})
+		chosen, factor, tint := model.Copy(random)
+		builder.output.copiesOf(chosen, point[0], point[1]).Add(position, turn, scale*factor, tint)
 	}
 	return nil
 }

@@ -141,7 +141,8 @@ func (gardener *gardener) place(point mapdata.Point, model *models.Model, settin
 			return
 		}
 		position := gardener.frame.Scene(spot[0], spot[1], gardener.height(spot[0], spot[1]))
-		gardener.output.copiesOf(model, spot[0], spot[1]).Add(position, turn, scale, [4]float32{1, 1, 1, 1})
+		chosen, factor, tint := model.Copy(random)
+		gardener.output.copiesOf(chosen, spot[0], spot[1]).Add(position, turn, scale*factor, tint)
 	}
 }
 

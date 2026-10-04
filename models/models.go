@@ -12,15 +12,29 @@
 //	  farol:
 //	    file: farol.glb            # or a model made in Blender, say (glTF binary)
 //
-// Shapes: box (size [x, y, z]), cylinder and cone (radius, height, sides), blob (radius or size
-// [x, y, z], sides), petals (count, length, width, tilt in degrees from flat). Every part can be
-// placed (at: [x, y, z]) and turned around the vertical axis (turn: degrees), and has a colour
-// (or a palette: each part takes one) and a material.
+// Shapes: box (size [x, y, z]), cylinder and cone (radius, height, sides; a cylinder can narrow to
+// top_radius), blob (radius or size [x, y, z], sides, rings; smooth unless smooth: false; wobble:
+// a share of its size that bends it out of round, like a tree crown), petals (count, length, width,
+// tilt in degrees from flat). Every part can be placed (at: [x, y, z]) and turned around the
+// vertical axis (turn: degrees), and has a colour (or a palette: each part takes one) and a
+// material.
+//
+// Variety: a model can be built in several variants (variants: 3), whose parts move ("move",
+// metres) and change size ("grow", a share) a little each time, and every copy placed on a map
+// can change its colour, warmth and size (vary):
+//
+//	caducifolio:
+//	  variants: 4
+//	  vary: {color: 0.12, warmth: 0.06, scale: [0.8, 1.25]}
+//	  parts:
+//	    - {shape: blob, size: [6, 6, 6], at: [0, 4, 0], wobble: 0.15, move: 0.8, grow: 0.2, color: "#56713a"}
 package models
 
 import (
 	"fmt"
+	"hash/fnv"
 	"math"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 
@@ -32,8 +46,32 @@ import (
 
 // Model is built once: a piece per material, in scene units (km) around the origin.
 type Model struct {
-	Name   string
-	Pieces []*mesh.Piece
+	Name     string
+	Pieces   []*mesh.Piece
+	Variants []*Model // the model's variants, itself first; nil = only itself
+	Vary     Variation
+}
+
+// Variation is how much each placed copy of a model changes.
+type Variation struct {
+	Color  float64    // share of lightness, up or down
+	Warmth float64    // share of red against blue, up or down
+	Scale  [2]float64 // range of sizes; zero = always 1
+}
+
+// Copy chooses how one more copy of the model looks: which variant, a size factor and a tint.
+func (model *Model) Copy(random *rand.Rand) (*Model, float64, [4]float32) {
+	chosen := model
+	if len(model.Variants) > 1 {
+		chosen = model.Variants[random.IntN(len(model.Variants))]
+	}
+	scale := 1.0
+	if model.Vary.Scale[1] > 0 {
+		scale = model.Vary.Scale[0] + (model.Vary.Scale[1]-model.Vary.Scale[0])*random.Float64()
+	}
+	lightness := 1 + model.Vary.Color*(2*random.Float64()-1)
+	warmth := model.Vary.Warmth * (2*random.Float64() - 1)
+	return chosen, scale, [4]float32{float32(lightness * (1 + warmth)), float32(lightness), float32(lightness * (1 - warmth)), 1}
 }
 
 // Library holds the models by name.
@@ -75,9 +113,15 @@ type libraryFile struct {
 }
 
 type modelFile struct {
-	Parts  []map[string]any `yaml:"parts"`
-	File   string           `yaml:"file"`
-	Levels []levelFile      `yaml:"levels"`
+	Parts    []map[string]any `yaml:"parts"`
+	File     string           `yaml:"file"`
+	Levels   []levelFile      `yaml:"levels"`
+	Variants int              `yaml:"variants"`
+	Vary     struct {
+		Color  float64   `yaml:"color"`
+		Warmth float64   `yaml:"warmth"`
+		Scale  []float64 `yaml:"scale"`
+	} `yaml:"vary"`
 }
 
 // levelFile is a simpler version of a model, drawn when it looks smaller than "below" (a share of
@@ -112,16 +156,8 @@ func (library *Library) load(path string) error {
 		return err
 	}
 	for name, definition := range file.Models {
-		model := &Model{Name: name}
-		if definition.File != "" {
-			model.Pieces, err = readGLB(filepath.Join(filepath.Dir(path), definition.File))
-		} else {
-			model.Pieces, err = buildParts(name, definition.Parts)
-		}
+		model, err := buildModel(name, definition, filepath.Dir(path))
 		if err != nil {
-			return fmt.Errorf("model %q: %w", name, err)
-		}
-		if err := addLevels(model, definition.Levels); err != nil {
 			return fmt.Errorf("model %q: %w", name, err)
 		}
 		library.models[name] = model
@@ -129,11 +165,45 @@ func (library *Library) load(path string) error {
 	return nil
 }
 
+// buildModel builds a model and its variants (a model from a file has no variants).
+func buildModel(name string, definition modelFile, directory string) (*Model, error) {
+	model := &Model{Name: name, Vary: Variation{Color: definition.Vary.Color, Warmth: definition.Vary.Warmth}}
+	if scale := definition.Vary.Scale; len(scale) == 2 {
+		model.Vary.Scale = [2]float64{scale[0], scale[1]}
+	}
+	if definition.File != "" {
+		pieces, err := readGLB(filepath.Join(directory, definition.File))
+		if err != nil {
+			return nil, err
+		}
+		model.Pieces = pieces
+		return model, addLevels(model, definition.Levels)
+	}
+	for variant := range max(1, definition.Variants) {
+		current := model
+		if variant > 0 {
+			current = &Model{Name: fmt.Sprintf("%s %d", name, variant+1)}
+		}
+		pieces, err := buildParts(name, definition.Parts, variant)
+		if err != nil {
+			return nil, err
+		}
+		current.Pieces = pieces
+		if err := addLevels(current, definition.Levels); err != nil {
+			return nil, err
+		}
+		if definition.Variants > 1 {
+			model.Variants = append(model.Variants, current)
+		}
+	}
+	return model, nil
+}
+
 // addLevels gives every piece of a model its simpler versions: the level's piece of the same
 // material, or nothing.
 func addLevels(model *Model, levels []levelFile) error {
 	for _, level := range levels {
-		simpler, err := buildParts(model.Name, level.Parts)
+		simpler, err := buildParts(model.Name, level.Parts, 0)
 		if err != nil {
 			return err
 		}
@@ -148,12 +218,17 @@ func addLevels(model *Model, levels []levelFile) error {
 	return nil
 }
 
-// buildParts builds a model's parts, each into the piece of its material.
-func buildParts(name string, parts []map[string]any) ([]*mesh.Piece, error) {
+// buildParts builds a model's parts, each into the piece of its material. Variants after the first
+// move and resize their parts a little ("move" and "grow"); every variant bends its blobs its own way.
+func buildParts(name string, parts []map[string]any, variant int) ([]*mesh.Piece, error) {
 	pieces := map[string]*mesh.Piece{}
 	var order []*mesh.Piece
 	for index, values := range parts {
+		seed := seedOf(name, index, variant)
 		part := style.Style(values)
+		if variant > 0 {
+			part = varied(part, rand.New(rand.NewPCG(seed, 11)))
+		}
 		material := recipes.MaterialOf(mesh.Material{Name: "model", Kind: "lit"}, part)
 		piece := pieces[material.Name]
 		if piece == nil {
@@ -165,7 +240,7 @@ func buildParts(name string, parts []map[string]any) ([]*mesh.Piece, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := addPart(piece, part, color); err != nil {
+		if err := addPart(piece, part, color, seed); err != nil {
 			return nil, fmt.Errorf("part %d: %w", index+1, err)
 		}
 	}
@@ -195,7 +270,41 @@ func placementOf(part style.Style) placement {
 	return place
 }
 
-func addPart(piece *mesh.Piece, part style.Style, color [4]float32) error {
+// seedOf is a repeatable seed for one part of one variant of a model.
+func seedOf(name string, part, variant int) uint64 {
+	hash := fnv.New64a()
+	fmt.Fprintf(hash, "%s/%d/%d", name, part, variant)
+	return hash.Sum64()
+}
+
+// varied is a copy of a part moved by up to "move" metres and resized by up to "grow" (a share).
+func varied(part style.Style, random *rand.Rand) style.Style {
+	move, _ := part.Number("move", nil, 0)
+	grow, _ := part.Number("grow", nil, 0)
+	if move == 0 && grow == 0 {
+		return part
+	}
+	copied := style.Style{}
+	for key, value := range part {
+		copied[key] = value
+	}
+	shift := func() float64 { return move * (2*random.Float64() - 1) }
+	at := triple(part["at"], [3]float64{})
+	copied["at"] = []any{at[0] + shift(), at[1] + shift()/2, at[2] + shift()}
+	factor := 1 + grow*(2*random.Float64()-1)
+	if _, sized := part["size"]; sized {
+		size := triple(part["size"], [3]float64{0.1, 0.1, 0.1})
+		copied["size"] = []any{size[0] * factor, size[1] * factor, size[2] * factor}
+	}
+	for _, key := range []string{"radius", "top_radius", "height", "length"} {
+		if value, present := number(part[key]); present {
+			copied[key] = value * factor
+		}
+	}
+	return copied
+}
+
+func addPart(piece *mesh.Piece, part style.Style, color [4]float32, seed uint64) error {
 	place := placementOf(part)
 	sides, _ := part.Number("sides", nil, 8)
 	switch shape := part.Text("shape", ""); shape {
@@ -205,7 +314,7 @@ func addPart(piece *mesh.Piece, part style.Style, color [4]float32) error {
 	case "cylinder", "cone":
 		radius, _ := part.Number("radius", nil, 0.05)
 		height, _ := part.Number("height", nil, 0.2)
-		top := radius
+		top, _ := part.Number("top_radius", nil, radius)
 		if shape == "cone" {
 			top = 0
 		}
@@ -213,7 +322,10 @@ func addPart(piece *mesh.Piece, part style.Style, color [4]float32) error {
 	case "blob":
 		radius, _ := part.Number("radius", nil, 0.1)
 		size := triple(part["size"], [3]float64{2 * radius, 2 * radius, 2 * radius})
-		addBlob(piece, place, size, int(sides), color)
+		rings, _ := part.Number("rings", nil, math.Max(4, math.Round(sides/2)))
+		wobble, _ := part.Number("wobble", nil, 0)
+		smooth := part["smooth"] != false
+		addBlob(piece, place, blobShape{size: size, sides: int(sides), rings: int(rings), wobble: wobble, seed: seed, smooth: smooth}, color)
 	case "petals":
 		count, _ := part.Number("count", nil, 5)
 		length, _ := part.Number("length", nil, 0.05)
