@@ -120,3 +120,17 @@ blob, petals) with colours and materials, or read from a binary glTF file made e
 (`file: lamp.glb`, in metres, y up); see `models/models.go`. Place them on point features
 (`shape: {role: model, model: lamp, scale: [0.9, 1.1], turn: random}`) or sow them on ground
 features (`decorate: [{recipe: scatter, density: 0.01, models: {lily: 3, lamp: 1}, group: 8}]`).
+
+### Biomes
+
+A grid of categories (`-layer biome=biomes.json`, the relief format with `labels`; go-simulator-climate
+makes one) colours the terrain and sows vegetation: in the style, `terrain.biomes` gives each biome a
+colour and, optionally, `decorate` recipes (scatter, plants) that cover its cells, never on the map's
+polygons nor on its wide lines (rivers, roads).
+
+```yaml
+terrain:
+  biomes:
+    conifers: {color: "#5b6a49", decorate: [{recipe: scatter, density: 0.00015, models: {fir: 1}, scale: [3, 5]}]}
+    meadow: {color: "#b7b47f"}
+```

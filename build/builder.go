@@ -48,6 +48,9 @@ type Input struct {
 	Context []*mapdata.Feature
 	// Models are the models the "model" role and the scatter recipe place.
 	Models *models.Library
+	// Layers are grids of categories over the map, by name; "biome" colours the terrain and sows
+	// the vegetation of each biome (terrain.biomes in the style).
+	Layers map[string]*relief.Relief
 }
 
 // HeightSource gives the height of the ground in metres at a map position (km east and north).
@@ -85,7 +88,7 @@ type Result struct {
 func Build(input Input) *Result {
 	result := &Result{Frame: frameOf(input), Roles: map[string]int{}}
 	if input.Relief != nil {
-		result.Pieces = append(result.Pieces, terrainPieces(input.Relief, input.Rules.Terrain, result.Frame)...)
+		result.Pieces = append(result.Pieces, terrainPieces(input.Relief, input.Layers["biome"], input.Rules.Terrain, result.Frame)...)
 	}
 	openings := relations.FindOpenings(input.related(), func(feature *mapdata.Feature) map[string]any {
 		resolved, _ := input.Rules.Resolve(feature.Kind, feature.Properties)
@@ -121,6 +124,7 @@ func Build(input Input) *Result {
 	result.count(blocks)
 	outputs = append(outputs, decorate(blocks, result.Frame, workers, chunk)...)
 	outputs = append(outputs, sow(plantings, blocks, input, result.Frame, chunk)...)
+	outputs = append(outputs, sowBiomes(input, blocks, result.Frame, chunk)...)
 	result.gather(outputs)
 	return result
 }

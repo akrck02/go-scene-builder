@@ -21,8 +21,8 @@ var terrainMaterial = mesh.Material{Name: "terrain", Kind: "lit"}
 //	terrain: {color: "#6b7f47", bands: [{above: 350, color: "#9e9e99", blend: 30}], material: {pattern: grass, scale: 2}}
 //
 // where each band takes over above a height, blending over "blend" metres.
-func terrainPieces(grid *relief.Relief, settings map[string]any, frame mesh.Frame) []*mesh.Piece {
-	colorOf := terrainColors(style.Style(settings))
+func terrainPieces(grid, biomes *relief.Relief, settings map[string]any, frame mesh.Frame) []*mesh.Piece {
+	colorOf := terrainColors(style.Style(settings), biomes)
 	var pieces []*mesh.Piece
 	for firstRow := 0; firstRow < grid.Rows-1; firstRow += terrainChunk {
 		for firstColumn := 0; firstColumn < grid.Columns-1; firstColumn += terrainChunk {
@@ -33,7 +33,7 @@ func terrainPieces(grid *relief.Relief, settings map[string]any, frame mesh.Fram
 				for column := firstColumn; column <= lastColumn; column++ {
 					east, north := grid.CellCentre(row, column)
 					height := grid.At(row, column)
-					piece.AddVertex(frame.Scene(east, north, height), terrainNormal(grid, row, column), colorOf(height))
+					piece.AddVertex(frame.Scene(east, north, height), terrainNormal(grid, row, column), colorOf(height, east, north))
 				}
 			}
 			addGridIndices(piece, lastRow-firstRow+1, lastColumn-firstColumn+1)
@@ -41,6 +41,41 @@ func terrainPieces(grid *relief.Relief, settings map[string]any, frame mesh.Fram
 		}
 	}
 	return pieces
+}
+
+// biomeColors returns the colour of the biomes around a place, averaged over 3 × 3 samples half a
+// layer cell apart (so borders blend), or false where no biome with a colour is near.
+func biomeColors(settings style.Style, biomes *relief.Relief) func(east, north float64) ([4]float32, bool) {
+	colors := map[int][4]float32{}
+	if biomes != nil {
+		for category, label := range biomes.Labels {
+			if color, err := settings.Section(label).Color("color", nil, [4]float32{}); err == nil && color[3] > 0 {
+				colors[category] = color
+			}
+		}
+	}
+	return func(east, north float64) ([4]float32, bool) {
+		if len(colors) == 0 {
+			return [4]float32{}, false
+		}
+		var sum [4]float32
+		count := float32(0)
+		for rowOffset := -1; rowOffset <= 1; rowOffset++ {
+			for columnOffset := -1; columnOffset <= 1; columnOffset++ {
+				category, inside := biomes.Category(east+float64(columnOffset)*biomes.Cell/2, north+float64(rowOffset)*biomes.Cell/2)
+				if color, known := colors[category]; inside && known {
+					for channel := range 4 {
+						sum[channel] += color[channel]
+					}
+					count++
+				}
+			}
+		}
+		if count == 0 {
+			return [4]float32{}, false
+		}
+		return [4]float32{sum[0] / count, sum[1] / count, sum[2] / count, sum[3] / count}, true
+	}
 }
 
 // addGridIndices adds two triangles per square of a grid of vertices, wound to face up.
@@ -63,8 +98,10 @@ func terrainNormal(grid *relief.Relief, row, column int) mesh.Vector {
 	return mesh.SceneDirection(-eastward, -northward, 1).Normalized()
 }
 
-// terrainColors returns the colour of the ground at a height.
-func terrainColors(settings style.Style) func(height float64) [4]float32 {
+// terrainColors returns the colour of the ground at a height and place: the biome's colour (from
+// the biome layer and terrain.biomes, blended over the neighbouring cells), or the base colour,
+// then the height bands over it.
+func terrainColors(settings style.Style, biomes *relief.Relief) func(height, east, north float64) [4]float32 {
 	base, err := settings.Color("color", nil, [4]float32{0.17, 0.23, 0.07, 1})
 	if err != nil {
 		base = [4]float32{0.17, 0.23, 0.07, 1}
@@ -85,8 +122,12 @@ func terrainColors(settings style.Style) func(height float64) [4]float32 {
 			bands = append(bands, band{above, blend, color})
 		}
 	}
-	return func(height float64) [4]float32 {
+	biomeColor := biomeColors(settings.Section("biomes"), biomes)
+	return func(height, east, north float64) [4]float32 {
 		color := base
+		if blended, found := biomeColor(east, north); found {
+			color = blended
+		}
 		for _, current := range bands {
 			share := 1.0
 			if current.blend > 0 {

@@ -23,6 +23,7 @@ type Relief struct {
 	West    float64   `json:"west"`
 	North   float64   `json:"north"`
 	Units   string    `json:"units"`
+	Labels  []string  `json:"labels,omitempty"` // a grid of categories: the name of each value
 	Heights []float32 `json:"-"`
 }
 
@@ -103,6 +104,27 @@ func (grid *Relief) Height(east, north float64) float64 {
 		return topLeft + across*(topRight-topLeft) + down*(bottomLeft-topLeft)
 	}
 	return bottomRight + (1-across)*(bottomLeft-bottomRight) + (1-down)*(topRight-bottomRight)
+}
+
+// Category is the value of the cell a point falls in, as a whole number (for grids of categories,
+// which do not blend); false outside the grid.
+func (grid *Relief) Category(east, north float64) (int, bool) {
+	if grid == nil {
+		return 0, false
+	}
+	column, row := int(math.Floor((east-grid.West)/grid.Cell)), int(math.Floor((grid.North-north)/grid.Cell))
+	if column < 0 || row < 0 || column >= grid.Columns || row >= grid.Rows {
+		return 0, false
+	}
+	return int(math.Round(grid.At(row, column))), true
+}
+
+// Label is the name of a category ("" when unknown).
+func (grid *Relief) Label(category int) string {
+	if category < 0 || category >= len(grid.Labels) {
+		return ""
+	}
+	return grid.Labels[category]
 }
 
 func clamp(value, low, high float64) float64 {

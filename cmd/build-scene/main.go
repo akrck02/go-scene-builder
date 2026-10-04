@@ -10,6 +10,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/akrck02/go-scene-builder/build"
@@ -28,6 +29,8 @@ func main() {
 	title := flag.String("title", "", "title of the scene")
 	showWarnings := flag.Int("warnings", 10, "how many warnings to print")
 	profile := flag.String("profile", "", "write a CPU profile to this file (go tool pprof)")
+	var layers layerFlags
+	flag.Var(&layers, "layer", "a grid of categories, name=path (biome=biomes.json colours the terrain and sows its vegetation); can repeat")
 	flag.Parse()
 	if *profile != "" {
 		stop, err := startProfile(*profile)
@@ -41,7 +44,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: build-scene -map map.geojson [-relief relieve.json] -style style.yaml [-out scene.glb]")
 		os.Exit(2)
 	}
-	if err := run(*mapPath, *reliefPath, *stylePath, *output, *title, *showWarnings); err != nil {
+	if err := run(*mapPath, *reliefPath, *stylePath, *output, *title, *showWarnings, layers); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -58,11 +61,17 @@ func startProfile(path string) (func(), error) {
 	return func() { pprof.StopCPUProfile(); file.Close() }, nil
 }
 
-func run(mapPath, reliefPath, stylePath, output, title string, showWarnings int) error {
+func run(mapPath, reliefPath, stylePath, output, title string, showWarnings int, layers layerFlags) error {
 	clock := newClock()
 	input, err := readInput(mapPath, reliefPath, stylePath)
 	if err != nil {
 		return err
+	}
+	input.Layers = map[string]*relief.Relief{}
+	for name, path := range layers {
+		if input.Layers[name], err = relief.Load(path); err != nil {
+			return err
+		}
 	}
 	clock.lap("read", fmt.Sprintf("%d features", len(input.Map.Features)))
 	result := build.Build(input)
@@ -147,4 +156,21 @@ func (timer *clock) lap(stage, detail string) {
 
 func (timer *clock) total() {
 	fmt.Printf("%-6s %6.2f s\n", "total", time.Since(timer.started).Seconds())
+}
+
+// layerFlags collects -layer name=path flags.
+type layerFlags map[string]string
+
+func (layers *layerFlags) String() string { return fmt.Sprint(map[string]string(*layers)) }
+
+func (layers *layerFlags) Set(value string) error {
+	name, path, found := strings.Cut(value, "=")
+	if !found {
+		return fmt.Errorf("expected name=path, got %q", value)
+	}
+	if *layers == nil {
+		*layers = layerFlags{}
+	}
+	(*layers)[name] = path
+	return nil
 }

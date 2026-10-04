@@ -61,6 +61,15 @@ func (library *Library) Names() []string {
 	return names
 }
 
+// NewLibrary is a library of models built in code.
+func NewLibrary(models ...*Model) *Library {
+	library := &Library{models: map[string]*Model{}}
+	for _, model := range models {
+		library.models[model.Name] = model
+	}
+	return library
+}
+
 type libraryFile struct {
 	Models map[string]modelFile `yaml:"models"`
 }
