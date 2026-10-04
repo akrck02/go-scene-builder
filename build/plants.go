@@ -35,8 +35,8 @@ import (
 // Each feature's plants are always the same (seeded by its id).
 
 var (
-	plantMaterial  = mesh.Material{Name: "plants", Kind: "lit"}
-	bloomsMaterial = mesh.Material{Name: "flower beds", Kind: "lit"}
+	plantMaterial  = mesh.Material{Name: "plants", Kind: "lit", Foliage: true, HideBelow: 0.08}
+	bloomsMaterial = mesh.Material{Name: "flower beds", Kind: "lit", HideBelow: 0.1}
 )
 
 // planting is a ground feature to sow, found in stage 1 and sown once the blocks are known.

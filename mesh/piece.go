@@ -59,6 +59,8 @@ type Material struct {
 	DepthBias    float64 // the renderer draws it a little nearer, so flat ground pieces do not flicker
 	Pattern      string  // procedural surface pattern: cobbles, masonry, plaster, shingles, planks, grass
 	PatternScale float64 // metres per pattern cell (a stone, a course of blocks, a row of shingles)
+	Foliage      bool    // leaves: takes the colour of the season
+	HideBelow    float64 // the piece is not drawn when it looks smaller than this share of the screen; 0 = always
 }
 
 // Piece is a mesh with one material.
@@ -70,6 +72,14 @@ type Piece struct {
 	Normals   []float32
 	Colors    []float32 // linear RGBA
 	Indices   []uint32
+	Details   []Detail // simpler versions for when the piece looks small, finer first
+}
+
+// Detail is a simpler version of a piece, drawn when the piece looks smaller than ScreenSize (a
+// share of the screen height); a nil Piece draws nothing.
+type Detail struct {
+	Piece      *Piece
+	ScreenSize float64
 }
 
 // VertexCount is the number of vertices of the piece.

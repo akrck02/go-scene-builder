@@ -75,3 +75,28 @@ func TestModelsFromGLB(t *testing.T) {
 		t.Errorf("top vertex at %v, want 0.002", top)
 	}
 }
+
+func TestModelLevels(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "models.yaml")
+	os.WriteFile(path, []byte(`
+models:
+  tree:
+    parts:
+      - {shape: cylinder, radius: 0.3, height: 4, color: "#5a4030"}
+      - {shape: blob, size: [5, 5, 5], at: [0, 3, 0], color: "#56713a", material: {foliage: true}}
+    levels:
+      - {below: 0.05, parts: [{shape: blob, size: [5, 7, 5], color: "#56713a", material: {foliage: true}}]}
+      - {below: 0.01}
+`), 0o644)
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trunk, crown := loaded.Model("tree").Pieces[0], loaded.Model("tree").Pieces[1]
+	if len(trunk.Details) != 2 || trunk.Details[0].Piece != nil {
+		t.Errorf("far away the trunk disappears: %+v", trunk.Details)
+	}
+	if len(crown.Details) != 2 || crown.Details[0].Piece == nil || crown.Details[1].Piece != nil || !crown.Material.Foliage {
+		t.Errorf("the crown becomes one blob, then nothing: %+v", crown.Details)
+	}
+}

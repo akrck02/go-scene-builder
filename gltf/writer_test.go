@@ -64,3 +64,28 @@ func TestInstancesAreWrittenOnce(t *testing.T) {
 		t.Errorf("instancing should be declared: %v", used)
 	}
 }
+
+func TestDetailVersionsAreListed(t *testing.T) {
+	piece := &mesh.Piece{Name: "flowers", Material: mesh.Material{Name: "flowers", Foliage: true}}
+	piece.AddTriangle(mesh.Vector{0, 0, 0}, mesh.Vector{0.001, 0, 0}, mesh.Vector{0, 0.001, 0}, mesh.Vector{0, 0, 1}, [4]float32{1, 1, 1, 1})
+	piece.Details = []mesh.Detail{{ScreenSize: 0.1}}
+	content, err := Encode([]*mesh.Piece{piece}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	length := binary.LittleEndian.Uint32(content[12:])
+	var parsed map[string]any
+	json.Unmarshal(content[20:20+length], &parsed)
+	meshes := parsed["meshes"].([]any)
+	if len(meshes) != 2 || len(parsed["nodes"].([]any)) != 1 {
+		t.Fatalf("a mesh, its hidden version and one node: %d meshes", len(meshes))
+	}
+	levels := meshes[0].(map[string]any)["extras"].(map[string]any)["detail"].([]any)
+	if level := levels[0].(map[string]any); level["mesh"] != 1.0 || level["screenSize"] != 0.1 {
+		t.Errorf("detail %v", level)
+	}
+	material := parsed["materials"].([]any)[0].(map[string]any)["extras"].(map[string]any)
+	if material["foliage"] != true {
+		t.Errorf("foliage should be marked: %v", material)
+	}
+}

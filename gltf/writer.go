@@ -144,21 +144,66 @@ func Encode(pieces []*mesh.Piece, instances []*mesh.Instances, sceneExtras map[s
 }
 
 func (output *writer) addPiece(piece *mesh.Piece) {
-	centre, scale := quantisation(piece.Positions)
-	attributes := map[string]int{
-		"POSITION": output.positionAccessor(piece.Positions, centre, scale),
-		"NORMAL":   output.normalAccessor(piece.Normals),
-		"COLOR_0":  output.colorAccessor(piece.Colors),
+	// the simpler versions share the node, so they share its quantisation
+	all := append([]float32(nil), piece.Positions...)
+	for _, detail := range piece.Details {
+		if detail.Piece != nil {
+			all = append(all, detail.Piece.Positions...)
+		}
 	}
-	primitive := primitiveEntry{Attributes: attributes, Indices: output.indexAccessor(piece.Indices), Material: output.material(piece.Material)}
+	centre, scale := quantisation(all)
+	quantised := func(version *mesh.Piece) map[string]int {
+		return map[string]int{"POSITION": output.positionAccessor(version.Positions, centre, scale),
+			"NORMAL": output.normalAccessor(version.Normals), "COLOR_0": output.colorAccessor(version.Colors)}
+	}
 	var extras map[string]any
 	if piece.Ground {
 		extras = map[string]any{"ground": true}
 	}
-	output.document.Meshes = append(output.document.Meshes, meshEntry{Name: piece.Name, Primitives: []primitiveEntry{primitive}, Extras: extras})
-	output.document.Nodes = append(output.document.Nodes, nodeEntry{Name: piece.Name, Mesh: len(output.document.Meshes) - 1,
+	index := output.addMesh(piece, quantised(piece), extras)
+	output.addDetails(index, piece, quantised)
+	output.document.Nodes = append(output.document.Nodes, nodeEntry{Name: piece.Name, Mesh: index,
 		Translation: centre[:], Scale: []float64{scale, scale, scale}, Extras: extras})
 	output.document.Scenes[0].Nodes = append(output.document.Scenes[0].Nodes, len(output.document.Nodes)-1)
+}
+
+// addMesh writes a mesh of one primitive and returns its index.
+func (output *writer) addMesh(piece *mesh.Piece, attributes map[string]int, extras map[string]any) int {
+	primitive := primitiveEntry{Attributes: attributes, Indices: output.indexAccessor(piece.Indices), Material: output.material(piece.Material)}
+	output.document.Meshes = append(output.document.Meshes, meshEntry{Name: piece.Name, Primitives: []primitiveEntry{primitive}, Extras: extras})
+	return len(output.document.Meshes) - 1
+}
+
+// addDetails writes the simpler versions of a piece (an empty version as one degenerate triangle)
+// and lists them in the main mesh's extras.
+func (output *writer) addDetails(main int, piece *mesh.Piece, attributes func(*mesh.Piece) map[string]int) {
+	if len(piece.Details) == 0 {
+		return
+	}
+	var levels []any
+	for _, detail := range piece.Details {
+		version := detail.Piece
+		if version == nil {
+			version = nothingLike(piece)
+		}
+		index := output.addMesh(version, attributes(version), nil)
+		levels = append(levels, map[string]any{"mesh": index, "screenSize": detail.ScreenSize})
+	}
+	entry := &output.document.Meshes[main]
+	if entry.Extras == nil {
+		entry.Extras = map[string]any{}
+	}
+	entry.Extras["detail"] = levels
+}
+
+// nothingLike is a version of a piece that draws nothing: one triangle with no area.
+func nothingLike(piece *mesh.Piece) *mesh.Piece {
+	empty := &mesh.Piece{Name: piece.Name + " (hidden)", Material: piece.Material}
+	corner := mesh.Vector{float64(piece.Positions[0]), float64(piece.Positions[1]), float64(piece.Positions[2])}
+	for range 3 {
+		empty.Indices = append(empty.Indices, empty.AddVertex(corner, mesh.Vector{0, 1, 0}, [4]float32{}))
+	}
+	return empty
 }
 
 // addInstances writes a model once (a mesh per piece, positions as floats: the instance transforms
@@ -179,17 +224,17 @@ func (output *writer) addInstances(copies *mesh.Instances) {
 		"SCALE":       output.floatAccessor(scales, "VEC3", false),
 		"_COLOR":      output.floatAccessor(copies.Tints, "VEC4", false),
 	}
+	floats := func(version *mesh.Piece) map[string]int {
+		return map[string]int{"POSITION": output.floatAccessor(version.Positions, "VEC3", true),
+			"NORMAL": output.normalAccessor(version.Normals), "COLOR_0": output.colorAccessor(version.Colors)}
+	}
 	for _, piece := range copies.Model {
 		if piece.TriangleCount() == 0 {
 			continue
 		}
-		primitive := primitiveEntry{Attributes: map[string]int{
-			"POSITION": output.floatAccessor(piece.Positions, "VEC3", true),
-			"NORMAL":   output.normalAccessor(piece.Normals),
-			"COLOR_0":  output.colorAccessor(piece.Colors),
-		}, Indices: output.indexAccessor(piece.Indices), Material: output.material(piece.Material)}
-		output.document.Meshes = append(output.document.Meshes, meshEntry{Name: copies.Name, Primitives: []primitiveEntry{primitive}})
-		output.document.Nodes = append(output.document.Nodes, nodeEntry{Name: copies.Name, Mesh: len(output.document.Meshes) - 1,
+		index := output.addMesh(piece, floats(piece), nil)
+		output.addDetails(index, piece, floats)
+		output.document.Nodes = append(output.document.Nodes, nodeEntry{Name: copies.Name, Mesh: index,
 			Extensions: map[string]any{"EXT_mesh_gpu_instancing": map[string]any{"attributes": attributes}}})
 		output.document.Scenes[0].Nodes = append(output.document.Scenes[0].Nodes, len(output.document.Nodes)-1)
 	}
@@ -220,6 +265,9 @@ func (output *writer) material(material mesh.Material) int {
 	extras := map[string]any{"kind": kind}
 	if material.DepthBias > 0 {
 		extras["depthBias"] = material.DepthBias
+	}
+	if material.Foliage {
+		extras["foliage"] = true
 	}
 	if material.Pattern != "" {
 		extras["pattern"] = material.Pattern

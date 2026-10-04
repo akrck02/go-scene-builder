@@ -134,3 +134,11 @@ terrain:
     conifers: {color: "#5b6a49", decorate: [{recipe: scatter, density: 0.00015, models: {fir: 1}, scale: [3, 5]}]}
     meadow: {color: "#b7b47f"}
 ```
+
+### Levels of detail
+
+Pieces carry simpler versions for when they look small on screen, which go-renderer picks: the
+terrain is written at full resolution and at every 2nd, 4th and 8th vertex, with skirts under the
+chunk edges; materials can hide from far away (`material: {hide_below: 0.1}`; facade details and
+plants do by default); models can declare simpler versions (`levels: [{below: 0.06, parts: […]},
+{below: 0.006}]`, no parts = not drawn). Materials marked `foliage: true` take the season's colour.

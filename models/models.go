@@ -75,8 +75,20 @@ type libraryFile struct {
 }
 
 type modelFile struct {
+	Parts  []map[string]any `yaml:"parts"`
+	File   string           `yaml:"file"`
+	Levels []levelFile      `yaml:"levels"`
+}
+
+// levelFile is a simpler version of a model, drawn when it looks smaller than "below" (a share of
+// the screen); without parts, the model is not drawn at all:
+//
+//	levels:
+//	  - {below: 0.05, parts: [{shape: blob, size: [6, 8, 6], at: [0, 2, 0], color: "#56713a"}]}
+//	  - {below: 0.01}
+type levelFile struct {
+	Below float64          `yaml:"below"`
 	Parts []map[string]any `yaml:"parts"`
-	File  string           `yaml:"file"`
 }
 
 // Load reads one or more library files (later files add or replace models).
@@ -109,7 +121,29 @@ func (library *Library) load(path string) error {
 		if err != nil {
 			return fmt.Errorf("model %q: %w", name, err)
 		}
+		if err := addLevels(model, definition.Levels); err != nil {
+			return fmt.Errorf("model %q: %w", name, err)
+		}
 		library.models[name] = model
+	}
+	return nil
+}
+
+// addLevels gives every piece of a model its simpler versions: the level's piece of the same
+// material, or nothing.
+func addLevels(model *Model, levels []levelFile) error {
+	for _, level := range levels {
+		simpler, err := buildParts(model.Name, level.Parts)
+		if err != nil {
+			return err
+		}
+		byMaterial := map[string]*mesh.Piece{}
+		for _, piece := range simpler {
+			byMaterial[piece.Material.Name] = piece
+		}
+		for _, piece := range model.Pieces {
+			piece.Details = append(piece.Details, mesh.Detail{Piece: byMaterial[piece.Material.Name], ScreenSize: level.Below})
+		}
 	}
 	return nil
 }

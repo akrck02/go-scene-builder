@@ -26,9 +26,9 @@ import (
 
 // facadeMaterials are the materials of facade parts that do not set their own.
 var (
-	glassMaterial  = mesh.Material{Name: "glass", Kind: "lit"}
-	detailMaterial = mesh.Material{Name: "details", Kind: "lit"}
-	glowMaterial   = mesh.Material{Name: "glowing details", Kind: "glow"}
+	glassMaterial  = mesh.Material{Name: "glass", Kind: "lit", HideBelow: facadeHideBelow}
+	detailMaterial = mesh.Material{Name: "details", Kind: "lit", HideBelow: facadeHideBelow}
+	glowMaterial   = mesh.Material{Name: "glowing details", Kind: "glow", HideBelow: facadeHideBelow}
 )
 
 // wallFrame places things on a facade: along the side (metres from its start), up from the ground
@@ -249,7 +249,11 @@ func (decorator *Decorator) flowerBox(wall wallFrame, settings style.Style, prop
 	return nil
 }
 
-var flowerMaterial = mesh.Material{Name: "flowers", Kind: "lit"}
+var flowerMaterial = mesh.Material{Name: "flowers", Kind: "lit", HideBelow: facadeHideBelow}
+
+// facadeHideBelow: facade details are not drawn when their square of the map looks smaller than
+// this share of the screen (far away, they are a few pixels and cost much).
+const facadeHideBelow = 0.12
 
 func asText(value any) string {
 	text, _ := value.(string)

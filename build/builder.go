@@ -258,7 +258,11 @@ func (result *Result) gather(outputs []*workerOutput) {
 		return keys[first].row < keys[second].row
 	})
 	for _, key := range keys {
-		result.Pieces = append(result.Pieces, merged[key])
+		piece := merged[key]
+		if piece.Material.HideBelow > 0 {
+			piece.Details = append(piece.Details, mesh.Detail{ScreenSize: piece.Material.HideBelow})
+		}
+		result.Pieces = append(result.Pieces, piece)
 	}
 	instanceKeys := make([]pieceKey, 0, len(mergedInstances))
 	for key := range mergedInstances {
