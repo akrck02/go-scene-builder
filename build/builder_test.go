@@ -150,3 +150,27 @@ rules:
 		}
 	}
 }
+
+func TestLargeGroundsFollowTheRelief(test *testing.T) {
+	town := &mapdata.Feature{Identifier: "town", Kind: "street", Polygons: []mapdata.Polygon{square(2)}}
+	input := testInput(test, town)
+	cells := 200
+	input.Relief = &relief.Relief{Columns: cells, Rows: cells, Cell: 0.01, West: 0, North: 2, Heights: make([]float32, cells*cells)}
+	input.Map.Origin = &mapdata.Point{0, 0}
+	result := Build(input)
+	for _, piece := range result.Pieces {
+		for index := 0; index+2 < len(piece.Indices); index += 3 {
+			var corners [3][2]float64
+			for corner := range 3 {
+				vertex := piece.Indices[index+corner] * 3
+				corners[corner] = [2]float64{float64(piece.Positions[vertex]), float64(piece.Positions[vertex+2])}
+			}
+			for corner := range 3 {
+				next := corners[(corner+1)%3]
+				if side := math.Hypot(next[0]-corners[corner][0], next[1]-corners[corner][1]); side > 0.015 {
+					test.Fatalf("%s has a side of %.0f m, longer than a relief cell: it cuts through the terrain", piece.Name, side*1000)
+				}
+			}
+		}
+	}
+}

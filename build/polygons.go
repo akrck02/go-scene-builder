@@ -51,9 +51,10 @@ func (builder *featureBuilder) insideTheRelief(polygons []*geos.Geom) []*geos.Ge
 
 // triangles splits polygons (with holes) into triangles that follow their outline exactly, each
 // split again until no side is longer than largestSide, so draped triangles follow the relief.
+// Large polygons are first cut into tiles, so that subdivision always gets down to largestSide.
 func (builder *featureBuilder) triangles(polygons []*geos.Geom) []triangle {
 	var result []triangle
-	for _, geometry := range polygons {
+	for _, geometry := range builder.tiled(polygons) {
 		for part := range geometry.NumGeometries() {
 			polygon := geometry.Geometry(part)
 			if polygon.TypeID() != geos.TypeIDPolygon || polygon.IsEmpty() {
@@ -71,6 +72,44 @@ func (builder *featureBuilder) triangles(polygons []*geos.Geom) []triangle {
 		}
 	}
 	return result
+}
+
+// tilesPerSide is how many largest sides fit across one tile: subdivision halves a side at most
+// six times, so a tile's triangles always come down to largestSide.
+const tilesPerSide = 16
+
+// tiled cuts each polygon wider than a tile into the squares of a grid of tiles.
+func (builder *featureBuilder) tiled(polygons []*geos.Geom) []*geos.Geom {
+	size := builder.largestSide() * tilesPerSide
+	if math.IsInf(size, 1) {
+		return polygons
+	}
+	var result []*geos.Geom
+	for _, polygon := range polygons {
+		west, south, east, north := envelopeOf(polygon)
+		if east-west <= size && north-south <= size {
+			result = append(result, polygon)
+			continue
+		}
+		for column := math.Floor(west / size); column*size < east; column++ {
+			for row := math.Floor(south / size); row*size < north; row++ {
+				tile := builder.square(column*size, row*size, size)
+				if part := polygon.Intersection(tile); !part.IsEmpty() {
+					result = append(result, part)
+				}
+			}
+		}
+	}
+	return result
+}
+
+func (builder *featureBuilder) square(west, south, size float64) *geos.Geom {
+	return builder.context.NewPolygon([][][]float64{{{west, south}, {west + size, south}, {west + size, south + size}, {west, south + size}, {west, south}}})
+}
+
+func envelopeOf(polygon *geos.Geom) (west, south, east, north float64) {
+	bounds := polygon.Bounds()
+	return bounds.MinX, bounds.MinY, bounds.MaxX, bounds.MaxY
 }
 
 // appendSubdivided splits a triangle into four until its longest side fits.
