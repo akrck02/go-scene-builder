@@ -21,6 +21,7 @@ import (
 type Decorator struct {
 	Frame   mesh.Frame
 	Context *geos.Context
+	Height  func(east, north float64) float64 // the ground in metres at a map position; nil on flat ground
 }
 
 // PieceFor returns the piece where geometry of a material goes.

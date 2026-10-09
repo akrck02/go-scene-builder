@@ -48,9 +48,13 @@ type wallFrame struct {
 }
 
 func (wall wallFrame) point(along, up, out float64) mesh.Vector {
-	east := wall.start[0] + (wall.along[0]*along+wall.outward[0]*out)/1000
-	north := wall.start[1] + (wall.along[1]*along+wall.outward[1]*out)/1000
-	return wall.frame.Scene(east, north, wall.ground+up)
+	position := wall.at(along, out)
+	return wall.frame.Scene(position[0], position[1], wall.ground+up)
+}
+
+// at is the map position "along" the wall and "out" metres in front of it.
+func (wall wallFrame) at(along, out float64) mapdata.Point {
+	return mapdata.Point{wall.start[0] + (wall.along[0]*along+wall.outward[0]*out)/1000, wall.start[1] + (wall.along[1]*along+wall.outward[1]*out)/1000}
 }
 
 // box adds a box standing out of the wall: from along0 to along1, up0 to up1, out0 to out1.
@@ -202,9 +206,7 @@ func (decorator *Decorator) openWall(current *block.Block, side int) (wallFrame,
 		return wallFrame{}, false
 	}
 	from, to := current.Side(side)
-	along := mapdata.Direction(from, to)
-	outward := mapdata.Point{along[1], -along[0]} // the exterior is anticlockwise: outside is on the right
-	return wallFrame{frame: decorator.Frame, start: from, along: along, outward: outward, ground: current.Ground,
+	return wallFrame{frame: decorator.Frame, start: from, along: mapdata.Direction(from, to), outward: mapdata.Outward(from, to), ground: current.Ground,
 		length: mapdata.Distance(from, to) * 1000}, true
 }
 
@@ -264,6 +266,9 @@ func (decorator *Decorator) door(wall wallFrame, settings style.Style, propertie
 	section := settings.Section("door")
 	color, err := section.Color("color", properties, [4]float32{0.25, 0.15, 0.08, 1})
 	if err != nil {
+		return err
+	}
+	if err := decorator.steps(wall, settings, properties, pieceFor, at, half); err != nil {
 		return err
 	}
 	if err := decorator.frame(wall, settings, properties, pieceFor, at, half, 0, values["door height"], false, values); err != nil {
@@ -405,6 +410,39 @@ func (decorator *Decorator) frame(wall wallFrame, settings style.Style, properti
 	wall.box(piece, at-half-width, at+half+width, top, top+width, 0, out, color)
 	if sill {
 		wall.box(piece, at-half-width-0.05, at+half+width+0.05, bottom-0.08, bottom, 0, out+0.08, color)
+	}
+	return nil
+}
+
+// stepRise and stepsReach: how high a step is at most, and how far the flight may reach into the street (metres).
+const (
+	stepRise    = 0.18
+	stepsReach  = 1.6
+	stepsMargin = 0.25 // how much wider than the door the steps are on each side
+)
+
+// steps lead down from a door to the street when the house stands above it (on a slope the floor is
+// half way up), in the stone of the frames.
+func (decorator *Decorator) steps(wall wallFrame, settings style.Style, properties map[string]any, pieceFor PieceFor, at, half float64) error {
+	if decorator.Height == nil {
+		return nil
+	}
+	street := wall.at(at, 0.6)
+	rise := wall.ground - decorator.Height(street[0], street[1])
+	if rise < stepRise/2 {
+		return nil
+	}
+	section := settings.Section("frames")
+	color, err := section.Color("color", properties, [4]float32{0.78, 0.75, 0.68, 1})
+	if err != nil {
+		return err
+	}
+	count := int(math.Ceil(rise / stepRise))
+	tread := math.Min(0.3, stepsReach/float64(count))
+	piece := pieceFor(MaterialOf(detailMaterial, section))
+	for step := range count {
+		top := -float64(step) * rise / float64(count)
+		wall.box(piece, at-half-stepsMargin, at+half+stepsMargin, -rise-0.2, top, 0, float64(step+1)*tread, color)
 	}
 	return nil
 }

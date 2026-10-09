@@ -126,7 +126,7 @@ func Build(input Input) *Result {
 	}
 	relations.Compute(blocks, input.related(), input.Rules.Relations)
 	result.count(blocks)
-	outputs = append(outputs, decorate(blocks, result.Frame, workers, chunk)...)
+	outputs = append(outputs, decorate(blocks, result.Frame, groundHeight(input), workers, chunk)...)
 	outputs = append(outputs, sow(plantings, blocks, input, result.Frame, chunk)...)
 	outputs = append(outputs, sowBiomes(input, blocks, result.Frame, chunk)...)
 	result.gather(outputs)
@@ -148,7 +148,7 @@ func (result *Result) count(blocks []*block.Block) {
 }
 
 // decorate runs the recipes of every block, spread over the processor's cores.
-func decorate(blocks []*block.Block, frame mesh.Frame, workers int, chunk float64) []*workerOutput {
+func decorate(blocks []*block.Block, frame mesh.Frame, height func(east, north float64) float64, workers int, chunk float64) []*workerOutput {
 	outputs := make([]*workerOutput, workers)
 	var group sync.WaitGroup
 	for worker := range workers {
@@ -156,7 +156,7 @@ func decorate(blocks []*block.Block, frame mesh.Frame, workers int, chunk float6
 		group.Add(1)
 		go func() {
 			defer group.Done()
-			decorator := &recipes.Decorator{Frame: frame, Context: geos.NewContext()}
+			decorator := &recipes.Decorator{Frame: frame, Context: geos.NewContext(), Height: height}
 			for index := worker; index < len(blocks); index += workers {
 				current := blocks[index]
 				first := current.Polygon.Exterior[0]
@@ -326,6 +326,17 @@ func (builder *featureBuilder) build(feature *mapdata.Feature) {
 	if err != nil {
 		builder.warn(feature, "%v", err)
 	}
+}
+
+// groundHeight is the relief height in metres at a map position, or nil without a relief.
+func groundHeight(input Input) func(east, north float64) float64 {
+	switch {
+	case input.Heights != nil:
+		return input.Heights.Height
+	case input.Relief != nil:
+		return input.Relief.Height
+	}
+	return nil
 }
 
 // height is the relief height in metres at a map position.

@@ -186,3 +186,65 @@ func TestSideWindowsOnOpenWallsOnly(test *testing.T) {
 		test.Error("windows on the wall the neighbour covers")
 	}
 }
+
+func TestStepsDownToALowerStreet(test *testing.T) {
+	ring := mapdata.Ring{{0, 0}, {0.008, 0}, {0.008, 0.01}, {0, 0.01}}
+	details := func(height func(east, north float64) float64) int {
+		current := &block.Block{Feature: &mapdata.Feature{Identifier: "house", Properties: map[string]any{"id": "house"}},
+			Polygon: mapdata.Polygon{Exterior: ring}, Ground: 0, Bottom: -1, Eaves: 6.5,
+			Facing: &block.Facing{Side: 0, Outward: mapdata.Point{0, -1}},
+			Style:  style.Style{"facade": map[string]any{"door": map[string]any{}}, "roof": map[string]any{"recipe": "flat"}}}
+		pieces := map[string]*mesh.Piece{}
+		pieceFor := func(material mesh.Material) *mesh.Piece {
+			if pieces[material.Name] == nil {
+				pieces[material.Name] = &mesh.Piece{Material: material}
+			}
+			return pieces[material.Name]
+		}
+		if err := (&Decorator{Context: geos.NewContext(), Height: height}).Decorate(current, pieceFor); err != nil {
+			test.Fatal(err)
+		}
+		return pieces["details"].TriangleCount()
+	}
+	level := details(func(east, north float64) float64 { return 0 })
+	below := details(func(east, north float64) float64 { return -0.9 })
+	if steps := (below - level) / 8; steps != 5 { // four sides and a top each
+		test.Errorf("a door 0.9 m above the street should have 5 steps, it has %d", steps)
+	}
+}
+
+func TestPlinthLeavesTheDoorFree(test *testing.T) {
+	ring := mapdata.Ring{{0, 0}, {0.008, 0}, {0.008, 0.01}, {0, 0.01}}
+	current := &block.Block{Feature: &mapdata.Feature{Identifier: "house", Properties: map[string]any{"id": "house"}},
+		Polygon: mapdata.Polygon{Exterior: ring}, Ground: 0, Bottom: -1, Eaves: 6.5,
+		Facing: &block.Facing{Side: 0, Outward: mapdata.Point{0, -1}},
+		Style: style.Style{"facade": map[string]any{"door": map[string]any{"width": 1.0}},
+			"stonework": map[string]any{"plinth": map[string]any{"height": 1.5}}, "roof": map[string]any{"recipe": "flat"}}}
+	pieces := map[string]*mesh.Piece{}
+	pieceFor := func(material mesh.Material) *mesh.Piece {
+		if pieces[material.Name] == nil {
+			pieces[material.Name] = &mesh.Piece{Material: material}
+		}
+		return pieces[material.Name]
+	}
+	if err := (&Decorator{Context: geos.NewContext()}).Decorate(current, pieceFor); err != nil {
+		test.Fatal(err)
+	}
+	stone := pieces[stoneMaterial.Name]
+	if stone == nil {
+		test.Fatal("no plinth")
+	}
+	// the door stands in the middle of the 8 m front (the south side, z >= 0): nothing of the plinth crosses 4 m
+	for index := 0; index+2 < len(stone.Indices); index += 3 {
+		west, east, south := math.Inf(1), math.Inf(-1), math.Inf(1)
+		for corner := range 3 {
+			vertex := stone.Indices[index+corner] * 3
+			west = math.Min(west, float64(stone.Positions[vertex]))
+			east = math.Max(east, float64(stone.Positions[vertex]))
+			south = math.Min(south, float64(stone.Positions[vertex+2]))
+		}
+		if south >= 0 && west < 0.004 && east > 0.004 {
+			test.Fatalf("the plinth runs across the door, from %.2f to %.2f m", west*1000, east*1000)
+		}
+	}
+}

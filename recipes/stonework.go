@@ -49,13 +49,32 @@ func (decorator *Decorator) stonework(current *block.Block, pieceFor PieceFor) e
 			outward: mapdata.Outward(from, to), ground: current.Ground, length: mapdata.Distance(from, to) * 1000}
 		bottom := current.Bottom - current.Ground
 		if values["plinth height"] > 0 {
-			wall.box(piece, -values["plinth out"], wall.length+values["plinth out"], bottom, values["plinth height"], 0, values["plinth out"], color)
+			from, to := -values["plinth out"], wall.length+values["plinth out"]
+			if gap, found := doorGap(current, side, wall.length); found {
+				wall.box(piece, from, gap[0], bottom, values["plinth height"], 0, values["plinth out"], color)
+				from = gap[1]
+			}
+			wall.box(piece, from, to, bottom, values["plinth height"], 0, values["plinth out"], color)
 		}
 		if values["quoin width"] > 0 {
 			decorator.quoins(wall, piece, values, current.Eaves-current.Ground, color)
 		}
 	}
 	return nil
+}
+
+// doorGap is the stretch of the front (metres along it) that the plinth leaves free for the door and
+// its steps: the door stands in the middle of the front (see facade).
+func doorGap(current *block.Block, side int, length float64) ([2]float64, bool) {
+	if current.Facing == nil || current.Facing.Side != side || len(current.Style.Section("facade")) == 0 {
+		return [2]float64{}, false
+	}
+	width, err := current.Style.Section("facade").Section("door").Number("width", current.Feature.Properties, 1.1)
+	if err != nil {
+		width = 1.1
+	}
+	half := width/2 + stepsMargin
+	return [2]float64{length/2 - half, length/2 + half}, true
 }
 
 func stoneworkNumbers(settings style.Style, properties map[string]any) (map[string]float64, error) {

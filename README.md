@@ -194,6 +194,8 @@ underside: the same city weighs about half.
 Houses stand halfway between their lowest and highest corners (`seat: middle`, the default; or
 `lowest`, `highest`): on a slope they are cut into the hill uphill and rise on a stone base downhill. A footprint that is not nearly a rectangle keeps its
 walls on the footprint, so they meet the neighbours' exactly, under a roof sloping from every side.
+A door above the street (a house half way up a slope) gets stone steps down to it, and the plinth
+leaves the door and its steps free.
 With `facade: {sides: {spacing: 4.5}}` the other open walls (gables, backs, houses at the back of a plot)
 get plainer windows, further apart and without a door. Window glass is a single pane.
 Decorations (plants and scattered models) keep off blocks (`clear`), lines with a width
