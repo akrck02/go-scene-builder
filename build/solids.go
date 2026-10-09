@@ -21,15 +21,19 @@ func (builder *featureBuilder) volume(feature *mapdata.Feature, resolved, shape 
 	if err != nil {
 		return err
 	}
-	seat := shape.Text("seat", "highest")
+	seat := shape.Text("seat", "middle")
 	for _, polygon := range feature.Polygons {
 		if !builder.coversAll(polygon.Exterior) {
 			continue
 		}
 		lowest, highest := builder.lowestOf(polygon.Exterior), builder.highestOf(polygon.Exterior)
-		floor := highest // on a slope the house stands on a stone base downhill instead of sinking uphill
-		if seat == "lowest" {
+		// on a slope a house is cut into the hill uphill and stands on a stone base downhill, half and half
+		floor := (lowest + highest) / 2
+		switch seat {
+		case "lowest":
 			floor = lowest
+		case "highest":
+			floor = highest
 		}
 		polygon.Exterior = polygon.Exterior.Anticlockwise()
 		builder.output.blocks = append(builder.output.blocks,

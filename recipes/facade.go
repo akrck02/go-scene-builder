@@ -24,6 +24,8 @@ import (
 //	  baskets: {share: 0.3, color: "#8a6a44", flowers: [...]}   # flower baskets hung beside the door
 //	  ivy: {share: 0.2, color: ["#3f6b32", ...], height: [2, 6]} # ivy climbing the wall (takes the season)
 //	  frames: {width: 0.14, out: 0.05, color: "#c9c0ae"}         # stone frames and sills round windows and doors
+//	  awning: {share: 0.6, depth: 1.4, color: [...]}               # a cloth awning over the ground floor, with a fringe
+//	  cornice: {height: 0.35, out: 0.3, color: "#d8cfbf"}          # a moulding under the eaves
 //
 // Every choice (palette colours, which windows get flower boxes) is stable for each block.
 
@@ -122,6 +124,16 @@ func (decorator *Decorator) facade(current *block.Block, pieceFor PieceFor) erro
 			return err
 		}
 	}
+	if values["awning share"] > 0 && chosen(properties, "awning", values["awning share"]) {
+		if err := decorator.awning(wall, settings.Section("awning"), properties, pieceFor, values); err != nil {
+			return err
+		}
+	}
+	if values["cornice height"] > 0 {
+		if err := decorator.cornice(wall, settings.Section("cornice"), properties, pieceFor, current.Eaves-current.Ground, values); err != nil {
+			return err
+		}
+	}
 	if values["ivy share"] > 0 && chosen(properties, "ivy", values["ivy share"]) {
 		if err := decorator.ivy(wall, settings.Section("ivy"), properties, pieceFor, random, current.Eaves-current.Ground); err != nil {
 			return err
@@ -156,6 +168,8 @@ func facadeNumbers(settings style.Style, properties map[string]any) (map[string]
 		{"emblem size", "emblem", "size", 0}, {"lamp share", "lamp", "share", 0},
 		{"round share", "door", "round", 0}, {"basket share", "baskets", "share", 0}, {"ivy share", "ivy", "share", 0},
 		{"frame width", "frames", "width", 0}, {"frame out", "frames", "out", 0.05},
+		{"awning share", "awning", "share", 0}, {"awning depth", "awning", "depth", 1.4},
+		{"cornice height", "cornice", "height", 0}, {"cornice out", "cornice", "out", 0.3},
 	} {
 		section := settings
 		if entry.section != "" {
@@ -323,6 +337,35 @@ func (decorator *Decorator) frame(wall wallFrame, settings style.Style, properti
 	}
 	return nil
 }
+
+// awning stretches a cloth over the ground floor, from wall to wall, with a fringe hanging at its front.
+func (decorator *Decorator) awning(wall wallFrame, settings style.Style, properties map[string]any, pieceFor PieceFor, values map[string]float64) error {
+	color, err := settings.Color("color", properties, [4]float32{0.7, 0.3, 0.25, 1})
+	if err != nil {
+		return err
+	}
+	piece := pieceFor(MaterialOf(awningMaterial, settings))
+	top := math.Min(values["ground floor"]-0.25, values["door height"]+0.55)
+	depth := values["awning depth"]
+	wall.box(piece, 0.2, wall.length-0.2, top, top+0.06, 0, depth, color)
+	wall.box(piece, 0.2, wall.length-0.2, top-0.3, top, depth-0.04, depth, color) // the fringe
+	return nil
+}
+
+// cornice runs a moulding along the top of the wall, under the eaves.
+func (decorator *Decorator) cornice(wall wallFrame, settings style.Style, properties map[string]any, pieceFor PieceFor, height float64, values map[string]float64) error {
+	color, err := settings.Color("color", properties, [4]float32{0.85, 0.82, 0.75, 1})
+	if err != nil {
+		return err
+	}
+	piece := pieceFor(MaterialOf(detailMaterial, settings))
+	band := values["cornice height"]
+	wall.box(piece, -0.05, wall.length+0.05, height-band, height-band*0.45, 0, values["cornice out"]*0.6, color)
+	wall.box(piece, -0.08, wall.length+0.08, height-band*0.45, height, 0, values["cornice out"], color)
+	return nil
+}
+
+var awningMaterial = mesh.Material{Name: "awnings", Kind: "lit", DoubleSided: true, HideBelow: facadeHideBelow}
 
 // chosen tells, stably for each block, whether it gets something that only a share of blocks get.
 func chosen(properties map[string]any, what string, share float64) bool {

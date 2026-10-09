@@ -191,8 +191,8 @@ underside: the same city weighs about half.
 
 ### Houses on slopes, irregular footprints and decoration rules
 
-Houses stand on their highest corner (`seat: highest`, the default; `lowest` sinks them uphill), so
-on a slope they rise on a stone base downhill. A footprint that is not nearly a rectangle keeps its
+Houses stand halfway between their lowest and highest corners (`seat: middle`, the default; or
+`lowest`, `highest`): on a slope they are cut into the hill uphill and rise on a stone base downhill. A footprint that is not nearly a rectangle keeps its
 walls on the footprint, so they meet the neighbours' exactly, under a roof sloping from every side.
 Decorations (plants and scattered models) keep off blocks (`clear`), lines with a width
 (`keep_off_lines`), models placed on their own and each other (`spacing`), and can keep to the edge
