@@ -26,6 +26,7 @@ import (
 //	  frames: {width: 0.14, out: 0.05, color: "#c9c0ae"}         # stone frames and sills round windows and doors
 //	  awning: {share: 0.6, depth: 1.4, color: [...]}               # a cloth awning over the ground floor, with a fringe
 //	  cornice: {height: 0.35, out: 0.3, color: "#d8cfbf"}          # a moulding under the eaves
+//	  sides: {spacing: 4.5, flower_boxes: 0.2, frames: false}   # windows (no door) on the other open walls: sparser, plainer
 //
 // Every choice (palette colours, which windows get flower boxes) is stable for each block.
 
@@ -75,6 +76,12 @@ func (wall wallFrame) post(piece *mesh.Piece, along, out, radius, bottom, top fl
 	}
 }
 
+// pane is a flat rectangle facing out of the wall, "out" metres in front of it.
+func (wall wallFrame) pane(piece *mesh.Piece, along0, along1, up0, up1, out float64, color [4]float32) {
+	piece.AddQuad(wall.point(along0, up0, out), wall.point(along1, up0, out), wall.point(along1, up1, out), wall.point(along0, up1, out),
+		mesh.SceneDirection(wall.outward[0], wall.outward[1], 0), color)
+}
+
 func (wall wallFrame) box(piece *mesh.Piece, along0, along1, up0, up1, out0, out1 float64, color [4]float32) {
 	outward := mesh.SceneDirection(wall.outward[0], wall.outward[1], 0)
 	sideways := mesh.SceneDirection(wall.along[0], wall.along[1], 0)
@@ -100,11 +107,18 @@ func (decorator *Decorator) facadeOf(current *block.Block) (wallFrame, bool) {
 		ground: current.Ground, length: mapdata.Distance(from, to) * 1000}, true
 }
 
-// facade adds door, windows, shutters, flower boxes, emblem and lamp to the side facing a street.
+// facade adds door, windows, shutters, flower boxes, emblem and lamp to the side facing a street,
+// and, with "sides", windows to the other open walls.
 func (decorator *Decorator) facade(current *block.Block, pieceFor PieceFor) error {
 	settings := current.Style.Section("facade")
+	if len(settings) == 0 {
+		return nil
+	}
+	if err := decorator.sideWindows(current, settings, pieceFor); err != nil {
+		return err
+	}
 	wall, found := decorator.facadeOf(current)
-	if len(settings) == 0 || !found || wall.length < 2 {
+	if !found || wall.length < 2 {
 		return nil
 	}
 	properties := current.Feature.Properties
@@ -115,7 +129,6 @@ func (decorator *Decorator) facade(current *block.Block, pieceFor PieceFor) erro
 	}
 	door := values["door width"] / 2
 	doorAt := wall.length / 2
-	floors := max(1, int(math.Round((current.Eaves-current.Ground-values["ground floor"])/values["floor height"]))+1)
 	if err := decorator.door(wall, settings, properties, pieceFor, doorAt, door, values); err != nil {
 		return err
 	}
@@ -139,6 +152,66 @@ func (decorator *Decorator) facade(current *block.Block, pieceFor PieceFor) erro
 			return err
 		}
 	}
+	for floor, base := range floorBases(current, values) {
+		if err := decorator.windowRow(wall, settings, properties, pieceFor, random, floor, base, doorAt, door, values); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// sideWindows puts rows of windows, "sides spacing" apart, on every wall that is not the front and
+// that no neighbour leans against.
+func (decorator *Decorator) sideWindows(current *block.Block, settings style.Style, pieceFor PieceFor) error {
+	sides := settings.Section("sides")
+	if len(sides) == 0 {
+		return nil
+	}
+	properties := current.Feature.Properties
+	values, err := facadeNumbers(settings, properties)
+	if err != nil {
+		return err
+	}
+	if values["spacing"], err = sides.Number("spacing", properties, 2*values["spacing"]); err != nil {
+		return err
+	}
+	if values["box share"], err = sides.Number("flower_boxes", properties, 0); err != nil {
+		return err
+	}
+	if framed, _ := sides["frames"].(bool); !framed {
+		values["frame width"] = 0
+	}
+	for side := range current.Polygon.Exterior {
+		wall, open := decorator.openWall(current, side)
+		if !open || wall.length < values["spacing"] {
+			continue
+		}
+		random := rand.New(rand.NewPCG(style.Seed(properties, "sides"), uint64(side)))
+		for floor, base := range floorBases(current, values) {
+			if err := decorator.windowRow(wall, settings, properties, pieceFor, random, floor, base, math.Inf(-1), 0, values); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// openWall is a side of the block that is not its front and that no neighbour covers.
+func (decorator *Decorator) openWall(current *block.Block, side int) (wallFrame, bool) {
+	if (current.Facing != nil && current.Facing.Side == side) || !math.IsInf(current.SharedUpTo(side), -1) {
+		return wallFrame{}, false
+	}
+	from, to := current.Side(side)
+	along := mapdata.Direction(from, to)
+	outward := mapdata.Point{along[1], -along[0]} // the exterior is anticlockwise: outside is on the right
+	return wallFrame{frame: decorator.Frame, start: from, along: along, outward: outward, ground: current.Ground,
+		length: mapdata.Distance(from, to) * 1000}, true
+}
+
+// floorBases are the heights of the floors (metres above the ground) that have room for a window.
+func floorBases(current *block.Block, values map[string]float64) []float64 {
+	var bases []float64
+	floors := max(1, int(math.Round((current.Eaves-current.Ground-values["ground floor"])/values["floor height"]))+1)
 	for floor := range floors {
 		base := 0.0
 		if floor > 0 {
@@ -147,11 +220,9 @@ func (decorator *Decorator) facade(current *block.Block, pieceFor PieceFor) erro
 		if base+values["sill"]+values["window height"] > current.Eaves-current.Ground-0.3 {
 			break
 		}
-		if err := decorator.windowRow(wall, settings, properties, pieceFor, random, floor, base, doorAt, door, values); err != nil {
-			return err
-		}
+		bases = append(bases, base)
 	}
-	return nil
+	return bases
 }
 
 func facadeNumbers(settings style.Style, properties map[string]any) (map[string]float64, error) {
@@ -265,7 +336,7 @@ func (decorator *Decorator) windowRow(wall wallFrame, settings style.Style, prop
 		if at-half-half < 0.2 || at+half+half > wall.length-0.2 {
 			continue
 		}
-		wall.box(pieceFor(glassMaterial), at-half, at+half, sill, top, 0, 0.03, glass)
+		wall.pane(pieceFor(glassMaterial), at-half, at+half, sill, top, 0.03, glass)
 		if err := decorator.frame(wall, settings, properties, pieceFor, at, half, sill, top, true, values); err != nil {
 			return err
 		}

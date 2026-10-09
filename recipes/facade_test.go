@@ -141,3 +141,48 @@ func TestIrregularHouseKeepsItsWalls(test *testing.T) {
 		test.Errorf("a tent roof has a slope per side")
 	}
 }
+
+func TestSideWindowsOnOpenWallsOnly(test *testing.T) {
+	ring := mapdata.Ring{{0, 0}, {0.008, 0}, {0.008, 0.01}, {0, 0.01}}
+	facade := map[string]any{"sides": map[string]any{"spacing": 3.0}}
+	// a house at the back of its plot: no street near, a neighbour against its west side
+	current := &block.Block{Feature: &mapdata.Feature{Identifier: "back", Properties: map[string]any{"id": "back"}},
+		Polygon: mapdata.Polygon{Exterior: ring}, Ground: 0, Bottom: -1, Eaves: 6.5,
+		Covered: []float64{math.Inf(-1), math.Inf(-1), math.Inf(-1), 6.5},
+		Style:   style.Style{"facade": facade, "roof": map[string]any{"recipe": "flat"}}}
+	pieces := map[string]*mesh.Piece{}
+	pieceFor := func(material mesh.Material) *mesh.Piece {
+		if pieces[material.Name] == nil {
+			pieces[material.Name] = &mesh.Piece{Material: material}
+		}
+		return pieces[material.Name]
+	}
+	if err := (&Decorator{Context: geos.NewContext()}).Decorate(current, pieceFor); err != nil {
+		test.Fatal(err)
+	}
+	if pieces["glass"] == nil {
+		test.Fatal("open walls should have windows")
+	}
+	outside := map[string]int{}
+	for index := 0; index < len(pieces["glass"].Positions); index += 3 {
+		east, south := float64(pieces["glass"].Positions[index]), float64(pieces["glass"].Positions[index+2])
+		switch {
+		case east < -0.000001:
+			outside["west"]++
+		case east > 0.008000001:
+			outside["east"]++
+		case south > 0.000001:
+			outside["south"]++
+		case south < -0.010000001:
+			outside["north"]++
+		}
+	}
+	for _, side := range []string{"east", "south", "north"} {
+		if outside[side] == 0 {
+			test.Errorf("no windows on the open %s wall", side)
+		}
+	}
+	if outside["west"] > 0 {
+		test.Error("windows on the wall the neighbour covers")
+	}
+}
