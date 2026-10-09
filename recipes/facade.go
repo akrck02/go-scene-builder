@@ -48,12 +48,12 @@ type wallFrame struct {
 }
 
 func (wall wallFrame) point(along, up, out float64) mesh.Vector {
-	position := wall.at(along, out)
+	position := wall.mapPosition(along, out)
 	return wall.frame.Scene(position[0], position[1], wall.ground+up)
 }
 
-// at is the map position "along" the wall and "out" metres in front of it.
-func (wall wallFrame) at(along, out float64) mapdata.Point {
+// mapPosition is the map position "along" the wall and "out" metres in front of it.
+func (wall wallFrame) mapPosition(along, out float64) mapdata.Point {
 	return mapdata.Point{wall.start[0] + (wall.along[0]*along+wall.outward[0]*out)/1000, wall.start[1] + (wall.along[1]*along+wall.outward[1]*out)/1000}
 }
 
@@ -171,30 +171,50 @@ func (decorator *Decorator) sideWindows(current *block.Block, settings style.Sty
 	if len(sides) == 0 {
 		return nil
 	}
-	properties := current.Feature.Properties
-	values, err := facadeNumbers(settings, properties)
+	values, err := sideWindowNumbers(settings, sides, current.Feature.Properties)
 	if err != nil {
 		return err
-	}
-	if values["spacing"], err = sides.Number("spacing", properties, 2*values["spacing"]); err != nil {
-		return err
-	}
-	if values["box share"], err = sides.Number("flower_boxes", properties, 0); err != nil {
-		return err
-	}
-	if framed, _ := sides["frames"].(bool); !framed {
-		values["frame width"] = 0
 	}
 	for side := range current.Polygon.Exterior {
 		wall, open := decorator.openWall(current, side)
 		if !open || wall.length < values["spacing"] {
 			continue
 		}
-		random := rand.New(rand.NewPCG(style.Seed(properties, "sides"), uint64(side)))
-		for floor, base := range floorBases(current, values) {
-			if err := decorator.windowRow(wall, settings, properties, pieceFor, random, floor, base, math.Inf(-1), 0, values); err != nil {
-				return err
-			}
+		if err := decorator.windowsOnWall(current, wall, side, settings, pieceFor, values); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// sideWindowNumbers are the facade's numbers with the side walls' own: their spacing (twice the
+// front's unless set), their share of flower boxes (none unless set) and no stone frames unless
+// "frames: true".
+func sideWindowNumbers(settings, sides style.Style, properties map[string]any) (map[string]float64, error) {
+	values, err := facadeNumbers(settings, properties)
+	if err != nil {
+		return nil, err
+	}
+	if values["spacing"], err = sides.Number("spacing", properties, 2*values["spacing"]); err != nil {
+		return nil, err
+	}
+	if values["box share"], err = sides.Number("flower_boxes", properties, 0); err != nil {
+		return nil, err
+	}
+	if framed, _ := sides["frames"].(bool); !framed {
+		values["frame width"] = 0
+	}
+	return values, nil
+}
+
+// windowsOnWall puts a row of windows on every floor of a wall without a door.
+func (decorator *Decorator) windowsOnWall(current *block.Block, wall wallFrame, side int, settings style.Style, pieceFor PieceFor, values map[string]float64) error {
+	properties := current.Feature.Properties
+	random := rand.New(rand.NewPCG(style.Seed(properties, "sides"), uint64(side)))
+	noDoor, noDoorWidth := math.Inf(-1), 0.0
+	for floor, base := range floorBases(current, values) {
+		if err := decorator.windowRow(wall, settings, properties, pieceFor, random, floor, base, noDoor, noDoorWidth, values); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -234,7 +254,7 @@ func facadeNumbers(settings style.Style, properties map[string]any) (map[string]
 		fallback           float64
 	}{
 		{"ground floor", "", "ground_floor", 3.5}, {"floor height", "", "floor_height", 3},
-		{"door width", "door", "width", 1.1}, {"door height", "door", "height", 2.3},
+		{"door width", "door", "width", defaultDoorWidth}, {"door height", "door", "height", 2.3},
 		{"window width", "windows", "width", 0.9}, {"window height", "windows", "height", 1.3},
 		{"sill", "windows", "sill", 1}, {"spacing", "windows", "spacing", 2.6},
 		{"box share", "flower_boxes", "share", 0}, {"glowing share", "flower_boxes", "glowing", 0},
@@ -414,22 +434,21 @@ func (decorator *Decorator) frame(wall wallFrame, settings style.Style, properti
 	return nil
 }
 
-// stepRise and stepsReach: how high a step is at most, and how far the flight may reach into the street (metres).
+// The steps in front of a door (metres).
 const (
-	stepRise    = 0.18
-	stepsReach  = 1.6
-	stepsMargin = 0.25 // how much wider than the door the steps are on each side
+	stepHighest         = 0.18 // the highest a step may be
+	stepDeepest         = 0.3  // the deepest a step may be
+	stepsReach          = 1.6  // how far the flight may reach into the street
+	stepsMargin         = 0.25 // how much wider than the door the steps are on each side
+	stepsSink           = 0.2  // how far the steps go into the ground, so they never float
+	streetInFrontOfDoor = 0.6  // where the street is measured, out from the door
 )
 
 // steps lead down from a door to the street when the house stands above it (on a slope the floor is
 // half way up), in the stone of the frames.
-func (decorator *Decorator) steps(wall wallFrame, settings style.Style, properties map[string]any, pieceFor PieceFor, at, half float64) error {
-	if decorator.Height == nil {
-		return nil
-	}
-	street := wall.at(at, 0.6)
-	rise := wall.ground - decorator.Height(street[0], street[1])
-	if rise < stepRise/2 {
+func (decorator *Decorator) steps(wall wallFrame, settings style.Style, properties map[string]any, pieceFor PieceFor, doorAt, doorHalfWidth float64) error {
+	rise, found := decorator.riseFromTheStreet(wall, doorAt)
+	if !found || rise < stepHighest/2 {
 		return nil
 	}
 	section := settings.Section("frames")
@@ -437,14 +456,26 @@ func (decorator *Decorator) steps(wall wallFrame, settings style.Style, properti
 	if err != nil {
 		return err
 	}
-	count := int(math.Ceil(rise / stepRise))
-	tread := math.Min(0.3, stepsReach/float64(count))
 	piece := pieceFor(MaterialOf(detailMaterial, section))
-	for step := range count {
-		top := -float64(step) * rise / float64(count)
-		wall.box(piece, at-half-stepsMargin, at+half+stepsMargin, -rise-0.2, top, 0, float64(step+1)*tread, color)
+	stepCount := int(math.Ceil(rise / stepHighest))
+	stepHeight := rise / float64(stepCount)
+	stepDepth := math.Min(stepDeepest, stepsReach/float64(stepCount))
+	from, to := doorAt-doorHalfWidth-stepsMargin, doorAt+doorHalfWidth+stepsMargin
+	for step := range stepCount {
+		top := -float64(step) * stepHeight // the first step is level with the door
+		wall.box(piece, from, to, -rise-stepsSink, top, 0, float64(step+1)*stepDepth, color)
 	}
 	return nil
+}
+
+// riseFromTheStreet is how far the door's sill (the wall's ground) is above the street in front of
+// it; false on flat ground (no heights).
+func (decorator *Decorator) riseFromTheStreet(wall wallFrame, doorAt float64) (float64, bool) {
+	if decorator.Height == nil {
+		return 0, false
+	}
+	street := wall.mapPosition(doorAt, streetInFrontOfDoor)
+	return wall.ground - decorator.Height(street[0], street[1]), true
 }
 
 // awning stretches a cloth over the ground floor, from wall to wall, with a fringe hanging at its front.

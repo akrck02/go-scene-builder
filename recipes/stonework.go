@@ -49,12 +49,7 @@ func (decorator *Decorator) stonework(current *block.Block, pieceFor PieceFor) e
 			outward: mapdata.Outward(from, to), ground: current.Ground, length: mapdata.Distance(from, to) * 1000}
 		bottom := current.Bottom - current.Ground
 		if values["plinth height"] > 0 {
-			from, to := -values["plinth out"], wall.length+values["plinth out"]
-			if gap, found := doorGap(current, side, wall.length); found {
-				wall.box(piece, from, gap[0], bottom, values["plinth height"], 0, values["plinth out"], color)
-				from = gap[1]
-			}
-			wall.box(piece, from, to, bottom, values["plinth height"], 0, values["plinth out"], color)
+			plinth(current, side, wall, piece, bottom, values, color)
 		}
 		if values["quoin width"] > 0 {
 			decorator.quoins(wall, piece, values, current.Eaves-current.Ground, color)
@@ -63,18 +58,37 @@ func (decorator *Decorator) stonework(current *block.Block, pieceFor PieceFor) e
 	return nil
 }
 
-// doorGap is the stretch of the front (metres along it) that the plinth leaves free for the door and
-// its steps: the door stands in the middle of the front (see facade).
-func doorGap(current *block.Block, side int, length float64) ([2]float64, bool) {
-	if current.Facing == nil || current.Facing.Side != side || len(current.Style.Section("facade")) == 0 {
-		return [2]float64{}, false
+// plinth runs a stone base along the foot of a wall, from below the ground to "plinth height", and
+// leaves the door and its steps free.
+func plinth(current *block.Block, side int, wall wallFrame, piece *mesh.Piece, bottom float64, values map[string]float64, color [4]float32) {
+	out, height := values["plinth out"], values["plinth height"]
+	from, to := -out, wall.length+out
+	if gap, found := doorGap(current, side, wall.length); found {
+		wall.box(piece, from, gap.from, bottom, height, 0, out, color)
+		from = gap.to
 	}
-	width, err := current.Style.Section("facade").Section("door").Number("width", current.Feature.Properties, 1.1)
+	wall.box(piece, from, to, bottom, height, 0, out, color)
+}
+
+// stretch is a part of a wall, in metres along it.
+type stretch struct{ from, to float64 }
+
+// defaultDoorWidth is the facade's door width when the style does not set it (see facadeNumbers).
+const defaultDoorWidth = 1.1
+
+// doorGap is the stretch of the front that the plinth leaves free for the door and its steps: the
+// door stands in the middle of the front (see facade). False on any other side.
+func doorGap(current *block.Block, side int, length float64) (stretch, bool) {
+	facade := current.Style.Section("facade")
+	if current.Facing == nil || current.Facing.Side != side || len(facade) == 0 {
+		return stretch{}, false
+	}
+	width, err := facade.Section("door").Number("width", current.Feature.Properties, defaultDoorWidth)
 	if err != nil {
-		width = 1.1
+		width = defaultDoorWidth
 	}
-	half := width/2 + stepsMargin
-	return [2]float64{length/2 - half, length/2 + half}, true
+	halfGap := width/2 + stepsMargin
+	return stretch{from: length/2 - halfGap, to: length/2 + halfGap}, true
 }
 
 func stoneworkNumbers(settings style.Style, properties map[string]any) (map[string]float64, error) {

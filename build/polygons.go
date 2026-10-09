@@ -80,31 +80,40 @@ const tilesPerSide = 16
 
 // tiled cuts each polygon wider than a tile into the squares of a grid of tiles.
 func (builder *featureBuilder) tiled(polygons []*geos.Geom) []*geos.Geom {
-	size := builder.largestSide() * tilesPerSide
-	if math.IsInf(size, 1) {
+	tileSize := builder.largestSide() * tilesPerSide
+	if math.IsInf(tileSize, 1) {
 		return polygons
 	}
 	var result []*geos.Geom
 	for _, polygon := range polygons {
-		west, south, east, north := envelopeOf(polygon)
-		if east-west <= size && north-south <= size {
-			result = append(result, polygon)
-			continue
-		}
-		for column := math.Floor(west / size); column*size < east; column++ {
-			for row := math.Floor(south / size); row*size < north; row++ {
-				tile := builder.square(column*size, row*size, size)
-				if part := polygon.Intersection(tile); !part.IsEmpty() {
-					result = append(result, part)
-				}
-			}
-		}
+		result = append(result, builder.tilesOf(polygon, tileSize)...)
 	}
 	return result
 }
 
-func (builder *featureBuilder) square(west, south, size float64) *geos.Geom {
-	return builder.context.NewPolygon([][][]float64{{{west, south}, {west + size, south}, {west + size, south + size}, {west, south + size}, {west, south}}})
+// tilesOf is the polygon itself when it fits in a tile, or its parts in each tile of the grid.
+func (builder *featureBuilder) tilesOf(polygon *geos.Geom, tileSize float64) []*geos.Geom {
+	west, south, east, north := envelopeOf(polygon)
+	if east-west <= tileSize && north-south <= tileSize {
+		return []*geos.Geom{polygon}
+	}
+	var parts []*geos.Geom
+	// tiles are counted from the map's origin, so that neighbouring polygons share the same grid
+	for column := math.Floor(west / tileSize); column*tileSize < east; column++ {
+		for row := math.Floor(south / tileSize); row*tileSize < north; row++ {
+			part := polygon.Intersection(builder.square(column*tileSize, row*tileSize, tileSize))
+			if part.IsEmpty() {
+				continue
+			}
+			parts = append(parts, part)
+		}
+	}
+	return parts
+}
+
+// square is the square polygon with that south-west corner and side.
+func (builder *featureBuilder) square(west, south, side float64) *geos.Geom {
+	return builder.context.NewPolygon([][][]float64{{{west, south}, {west + side, south}, {west + side, south + side}, {west, south + side}, {west, south}}})
 }
 
 func envelopeOf(polygon *geos.Geom) (west, south, east, north float64) {
