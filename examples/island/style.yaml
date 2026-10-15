@@ -1,0 +1,73 @@
+# The example island, dressed: plastered houses with tiled roofs, facades on the streets,
+# gardens, a forest and a river with a bridge.
+units: m
+chunk: 0.5
+environment: {sun: [235, 38], water_level: 0, vertical_scale: 1.5}
+models: [models.yaml]
+terrain:
+  color: "#d8c9a0"                       # sand by the sea
+  bands:
+    - {above: 3, color: "#7f9a52", blend: 4}     # grass
+    - {above: 95, color: "#9e9e99", blend: 20}   # rock on the hilltop
+relations:
+  facing: {when: {kind: [street, road]}, reach: 20}
+  rows: {tolerance: 0.4}
+rules:
+  - when: {kind: beach}
+    shape: {role: ground, lift: 0.05}
+    color: "#e6d8b0"
+  - when: {kind: square}
+    shape: {role: ground, lift: 0.15}
+    color: "#cfc4ae"
+    material: {pattern: cobbles, scale: 0.35}
+  - when: {kind: street}
+    shape: {role: ground, width: "width", lift: 0.12}
+    color: ["#e6dcc4", "#ddd2b8"]
+    material: {pattern: cobbles, scale: 0.35}
+  - when: {kind: road}
+    shape: {role: ground, width: "width", lift: 0.1}
+    color: "#bdb29a"
+  - when: {kind: path}
+    shape: {role: ground, width: "width", lift: 0.08}
+    color: "#c9b48a"
+  - when: {kind: garden}
+    shape: {role: ground, lift: 0.06}
+    color: "#6f8f45"
+    material: {pattern: grass, scale: 0.5}
+    decorate:
+      - {recipe: plants, density: 0.03, trees: 0.2, beds: 0.3, tree_height: [4, 7], clear: 1.5,
+         foliage: ["#4f6b35", "#5d7a3c"], flowers: ["#d2453c", "#e8c547", "#f2f0e8"], trunk: "#5a4030"}
+  - when: {kind: forest}
+    shape: {role: ground, lift: 0.5}
+    color: "#5b6a49"
+    decorate:
+      - {recipe: scatter, density: 0.004, models: {fir: 2, broadleaf: 1}, turn: random}
+  - when: {kind: river}
+    shape: {role: water, width: "width", above_bed: 1.5}
+    color: "#2f6f8f"
+  - when: {kind: bridge}
+    shape: {role: line, follow: level, thickness: "width", height: 0.6, sink: 0.8}
+    color: "#a39a8a"
+    material: {pattern: masonry, scale: 0.5}
+  - when: {kind: building}
+    shape: {role: volume, height: "3.5 + (floors - 1) * 3"}
+    walls: {color: ["#efe6d2", "#e9dfc9", "#f2e3c4", "#e4d6bd"], material: {pattern: plaster, scale: 0.5}}
+    roof: {recipe: gable, pitch: 35, ridge: along_street, eaves: 0.5, color: ["#a4553a", "#b0613f", "#96503a"],
+           material: {pattern: shingles, scale: 0.3}, chimneys: {share: 0.4, width: 0.6, above: 1}}
+    stonework: {plinth: 0.6}
+    facade:
+      door: {round: 0.4}
+      windows: {shutters: ["#4f6b5a", "#6b4f3a", "#3f5a7a"]}
+      flower_boxes: {share: 0.5, flowers: ["#d2453c", "#e8c547"], glowing: {share: 0.3}}
+      lamp: {share: 0.6}
+      sides: {spacing: 4.5}
+  - when: {kind: building, use: [shop, workshop], floors: {min: 2}}
+    roof: {color: "#8e4631"}
+  - when: {kind: tower}
+    shape: {role: point, size: 6, height: "height", form: round}
+    walls: {color: "#d9d2c3", material: {pattern: masonry, scale: 0.6}}
+    roof: {recipe: hip, pitch: 50, color: "#7a3f2c"}
+  - when: {kind: tower, id: bell-tower}
+    shape: {size: 5, height: 16, form: square}
+  - when: {kind: lamp}
+    shape: {role: model, model: lamp}
