@@ -1,6 +1,6 @@
 <div align="center">
 
-# go-scene-builder
+# Go scene builder
 
 **From a flat map to a 3D scene you can walk through.** Give it any **2D map** (GeoJSON whose
 features carry an `id` and a `kind`), a **relief** (a grid of heights) and **style rules** written
