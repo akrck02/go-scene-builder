@@ -1,9 +1,13 @@
-# Style rules
+# 🎨 Style rules
 
 Style rules are where you decide what things look like. They are a YAML file read **in cascade**,
 like a style sheet: every rule whose selector matches a feature adds or replaces values, and the
 last one wins. So you write the general look first ("buildings are plastered, with tiled roofs")
 and then the exceptions ("shops with three floors or more have darker roofs").
+
+<p align="center">
+  <img alt="A building with use shop and three floors meets three rules in order: the general building rule gives plastered walls and a gable roof, a street rule does not match and is skipped, a rule for shops with two floors or more replaces only the roof colour; the last match wins" src="images/cascade.svg" width="880">
+</p>
 
 ## A complete example
 
@@ -38,6 +42,32 @@ rules:
   - when: {kind: tower}
     shape: {role: point, size: 8, height: 15, form: round}
 ```
+
+## The same map, two looks
+
+The [example island](example.md) has two style files for one map. Only the rules for houses and
+towers differ: `style.yaml` plasters the walls and tiles the roofs, `style-stone.yaml` builds them
+in masonry with slate hip roofs, stone frames, corner stones and ivy.
+
+<table>
+<tr>
+<th width="50%"><code>style.yaml</code>: plaster and tiles</th>
+<th width="50%"><code>style-stone.yaml</code>: stone and slate</th>
+</tr>
+<tr>
+<td><img alt="The village square with plastered houses under red gable roofs, shutters and a bell tower" src="images/style-plaster.png"></td>
+<td><img alt="The same square with stone houses under grey slate hip roofs and a grey-roofed bell tower" src="images/style-stone.png"></td>
+</tr>
+</table>
+
+```text
+style.yaml                                           style-stone.yaml
+walls: {material: {pattern: plaster}}                walls: {material: {pattern: masonry}}
+roof: {recipe: gable, pitch: 35, color: "#a4553a"}   roof: {recipe: hip, pitch: 30, color: "#4a4f57"}
+stonework: {plinth: 0.6}                             stonework: {plinth: 0.8, quoins: {width: 0.45}}
+```
+
+(A few lines of each, with one colour of each palette; the files have the rest.)
 
 ## Selectors and values
 
