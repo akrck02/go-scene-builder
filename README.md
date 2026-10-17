@@ -66,7 +66,7 @@ reviewed it line by line. Treat it as a working draft, not as code I vouch for.
 <td>Terrain, houses with roofs and facades, a river dug into the ground, trees sown on the hill.</td>
 </tr>
 <tr>
-<td colspan="3" align="center">Change the rules, not the map: the same village in plaster and tiles, or in stone and slate (<a href="docs/style.md#the-same-map-two-looks">style rules</a>).</td>
+<td colspan="3" align="center">Change the rules, not the map: the same village in plaster and tiles, or in stone and slate (<a href="docs/5-style-rules.md#the-same-map-two-looks">style rules</a>).</td>
 </tr>
 </table>
 
@@ -88,7 +88,7 @@ Your own scene is the same command with your map, relief and rules:
 go run ./cmd/build-scene -map map.geojson -relief relieve.json -style style.yaml -out scene.glb
 ```
 
-[More on the example island →](docs/example.md)
+[More on the example island →](docs/3-the-example-island.md)
 
 ## 🔍 How it works
 
@@ -101,15 +101,15 @@ map + relief → 1 basic blocks → 2 relations → 3 style rules → 4 decorati
 ```
 
 The map says *where* things are; the style rules say what they look like, read in cascade like a
-style sheet. [More on the pipeline →](docs/pipeline.md)
+style sheet. [More on the pipeline →](docs/4-the-pipeline.md)
 
 ## 📚 Documentation
 
 | | |
 |---|---|
-| [The pipeline](docs/pipeline.md) | The four stages, what goes in, what comes out, and use as a library. |
-| [Style rules](docs/style.md) | Selectors and values, shapes, materials, walls and roofs, houses on slopes, terrain. |
-| [Decoration](docs/decoration.md) | Facades, plants, models, biomes, rivers and bridges, gates, levels of detail. |
-| [The example island](docs/example.md) | A small made-up island to build, look at and change. |
+| [The pipeline](docs/4-the-pipeline.md) | The four stages, what goes in, what comes out, and use as a library. |
+| [Style rules](docs/5-style-rules.md) | Selectors and values, shapes, materials, walls and roofs, houses on slopes, terrain. |
+| [Decoration](docs/6-decoration.md) | Facades, plants, models, biomes, rivers and bridges, gates, levels of detail. |
+| [The example island](docs/3-the-example-island.md) | A small made-up island to build, look at and change. |
 
-Everything starts at the [documentation index](docs/README.md).
+Everything starts at the [documentation index](docs/1-overview.md).

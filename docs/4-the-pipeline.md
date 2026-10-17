@@ -48,7 +48,7 @@ It prints how long each stage took and the first warnings (features no rule styl
 `-profile cpu.out` writes a CPU profile for `go tool pprof`. Then open the scene:
 `go run ./cmd/visor scene.glb` in go-renderer.
 
-The [example island](example.md) is a complete set of inputs to try it with.
+The [example island](3-the-example-island.md) is a complete set of inputs to try it with.
 
 ## What goes in
 
@@ -100,7 +100,7 @@ example island's are `relief.json` and `relief.f32`).
 
 **Layers** are grids of categories in the same format with `labels` (the name of every value), such
 as the biomes a climate simulator writes: `-layer biome=biomes.json`. They colour the terrain and
-sow vegetation ([decoration](decoration.md#biomes)).
+sow vegetation ([decoration](6-decoration.md#biomes)).
 
 ## What comes out
 

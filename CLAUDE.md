@@ -1,8 +1,8 @@
 # go-scene-builder
 
 Turns a 2D map (GeoJSON with `id` and `kind`) and a relief into a 3D scene (`.glb`) for
-go-renderer, following style rules written by the author. Start with `docs/pipeline.md`; style rules
-in `docs/style.md`.
+go-renderer, following style rules written by the author. Start with `docs/4-the-pipeline.md`; style rules
+in `docs/5-style-rules.md`.
 
 ## Commands
 

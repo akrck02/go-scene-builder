@@ -21,8 +21,8 @@ All in [`examples/island/`](../examples/island):
 | [`map.geojson`](../examples/island/map.geojson) | The map, in metres east and north of the island's centre, one feature per line. Kinds: `building` (with `floors` and `use`), `street`, `road` and `path` (lines with a `width` in metres), `square`, `garden`, `forest` and `beach` (polygons), `river` and `bridge` (lines with a `width`), `tower` and `lamp` (points). |
 | [`relief.json`](../examples/island/relief.json), `relief.f32` | The relief: 160 × 120 cells of 10 metres. Under 0 metres is the sea floor. |
 | [`style.yaml`](../examples/island/style.yaml) | The full style: plastered houses with tiled gable roofs, facades, gardens with plants, a forest of models, a river and a bridge, a sea at 0 metres. |
-| [`style-stone.yaml`](../examples/island/style-stone.yaml) | The same, with stone houses and slate hip roofs ([style rules](style.md#the-same-map-two-looks)). |
-| [`style-plain.yaml`](../examples/island/style-plain.yaml) | Shapes only, without decoration ([decoration](decoration.md)). |
+| [`style-stone.yaml`](../examples/island/style-stone.yaml) | The same, with stone houses and slate hip roofs ([style rules](5-style-rules.md#the-same-map-two-looks)). |
+| [`style-plain.yaml`](../examples/island/style-plain.yaml) | Shapes only, without decoration ([decoration](6-decoration.md)). |
 | [`models.yaml`](../examples/island/models.yaml) | The model library: a fir, a broadleaf tree and a lamp. |
 
 ## Build it
