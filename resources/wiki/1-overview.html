@@ -1,0 +1,213 @@
+<h1 id="welcome-to-go-scene-builder">Welcome to go-scene-builder 👋</h1>
+
+<p><strong>go-scene-builder turns a flat map into a 3D scene you can walk through</strong>: you say <em>what is where</em> (a house here, a street there) and <em>what things look like</em> (stone walls, red roofs), and it builds the village.</p>
+
+<p align="center"><img alt="A village built from a map: houses with roofs and facades along streets, a river and trees" src="images/hero-light.png" width="720"></p>
+
+<p>It reads three things: a <strong>map</strong> (the outlines of houses, streets, rivers), a <strong>relief</strong> (how high the ground is) and <strong>style rules</strong> (a text file saying what each kind of thing looks like). It writes a <code>.glb</code> scene that go-renderer&rsquo;s viewer opens. Change the rules and the same map becomes another village.</p>
+
+<h2 id="is-it-for-me">Is it for me?</h2>
+
+<ul>
+<li>✅ You have a <strong>map</strong> and want to <strong>see it in 3D</strong>.</li>
+<li>✅ You want to design how a place looks <strong>by writing rules</strong>, not by modelling every house.</li>
+<li>✅ You are <strong>not a programmer</strong>: maps and rules are text files, no code needed.</li>
+</ul>
+
+<h2 id="where-to-start">Where to start</h2>
+
+<p>Pick the line that sounds like you.</p>
+
+<table>
+<thead>
+<tr>
+<th>If you…</th>
+<th>Read</th>
+<th>Time</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>want to <strong>see</strong> an example right away</td>
+<td><a href="./3-the-example-island">The example island</a></td>
+<td>5 min</td>
+</tr>
+
+<tr>
+<td>are <strong>new</strong> and want to build something</td>
+<td>🏴‍☠️ <a href="./2-the-quest">The quest</a>: a village from a map, in 6 levels</td>
+<td>60 min</td>
+</tr>
+
+<tr>
+<td>want to know <strong>what goes in and out</strong></td>
+<td><a href="./4-the-pipeline">The pipeline</a></td>
+<td>10 min</td>
+</tr>
+
+<tr>
+<td>want to <strong>write style rules</strong>: roofs, walls, materials</td>
+<td><a href="./5-style-rules">Style rules</a></td>
+<td>—</td>
+</tr>
+
+<tr>
+<td>want <strong>facades, trees, lamps, rivers, gates</strong></td>
+<td><a href="./6-decoration">Decoration</a></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="try-it-without-writing-code">Try it without writing code</h2>
+
+<p>Everything here is text files and two commands: one builds the scene, the other opens it.</p>
+<pre><code class="language-sh">go run ./cmd/build-scene -map map.geojson -style style.yaml -out village.glb
+go run ../go-renderer/cmd/visor village.glb
+</code></pre>
+
+<p>The <a href="./2-the-quest">quest</a> gives you the files to start from.</p>
+
+<h2 id="all-the-pages-in-reading-order">All the pages, in reading order</h2>
+
+<p>The menu on the left (or the files in <code>docs/</code>) follows this order.</p>
+
+<p><strong>Start</strong></p>
+
+<ul>
+<li><a href="./1-overview">Overview</a>: this page</li>
+<li><a href="./2-the-quest">The quest</a>: six levels, from one house to a walled town</li>
+<li><a href="./3-the-example-island">The example island</a></li>
+</ul>
+
+<p><strong>Guides</strong></p>
+
+<ul>
+<li><a href="./4-the-pipeline">The pipeline</a>: the four stages</li>
+<li><a href="./5-style-rules">Style rules</a></li>
+<li><a href="./6-decoration">Decoration</a></li>
+</ul>
+
+<h2 id="not-done-yet">🚧 Not done yet</h2>
+
+<ul>
+<li>Balconies and more decorations.</li>
+</ul>
+
+<h2 id="words-you-will-meet">Words you will meet</h2>
+
+<table>
+<thead>
+<tr>
+<th>Word</th>
+<th>What it means</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Terminal</td>
+<td>The window where you type commands: <em>Terminal</em> on macOS and Linux, <em>PowerShell</em> on Windows.</td>
+</tr>
+
+<tr>
+<td>Repository</td>
+<td>A project&rsquo;s folder of files, kept on GitHub. <code>git clone &lt;address&gt;</code> copies it to your computer.</td>
+</tr>
+
+<tr>
+<td>Scene</td>
+<td>Everything a 3D picture holds: ground, houses, trees, the sea, the sky and the sun.</td>
+</tr>
+
+<tr>
+<td><code>.glb</code> file</td>
+<td>A 3D scene in one file, in the open glTF format: many programs (Blender among them) open and write it.</td>
+</tr>
+
+<tr>
+<td>Quest</td>
+<td>The tutorial of these docs: short levels, each ending with something that works and an achievement.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="the-family">The family</h2>
+
+<p>go-scene-builder is one of a family of small projects that work together:</p>
+
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>What it does</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><a href="https://github.com/akrck02/go-renderer" target="_blank">go-renderer</a></td>
+<td>draws 3D scenes and flat interfaces</td>
+</tr>
+
+<tr>
+<td><a href="https://github.com/akrck02/go-ui" target="_blank">go-ui</a></td>
+<td>buttons, panels and whole applications</td>
+</tr>
+
+<tr>
+<td><a href="https://github.com/akrck02/go-ui-android" target="_blank">go-ui-android</a></td>
+<td>Android apps that look like Android&rsquo;s own</td>
+</tr>
+
+<tr>
+<td><a href="https://github.com/akrck02/go-sound" target="_blank">go-sound</a></td>
+<td>sound and music</td>
+</tr>
+
+<tr>
+<td><strong>go-scene-builder</strong> (this one)</td>
+<td>3D scenes from a flat map</td>
+</tr>
+
+<tr>
+<td><a href="https://github.com/akrck02/go-simulator" target="_blank">go-simulator</a></td>
+<td>simulations that change a scene</td>
+</tr>
+
+<tr>
+<td><a href="https://github.com/akrck02/go-simulator-terrain" target="_blank">go-simulator-terrain</a></td>
+<td>ground shaped by rivers</td>
+</tr>
+
+<tr>
+<td><a href="https://github.com/akrck02/go-simulator-climate" target="_blank">go-simulator-climate</a></td>
+<td>weather and biomes</td>
+</tr>
+
+<tr>
+<td><a href="https://github.com/akrck02/go-simulator-flora" target="_blank">go-simulator-flora</a></td>
+<td>forests that grow</td>
+</tr>
+
+<tr>
+<td><a href="https://github.com/akrck02/go-simulator-urban" target="_blank">go-simulator-urban</a></td>
+<td>towns that grow</td>
+</tr>
+
+<tr>
+<td><a href="https://github.com/akrck02/go-simulator-motion" target="_blank">go-simulator-motion</a></td>
+<td>a scene that moves</td>
+</tr>
+
+<tr>
+<td><a href="https://github.com/akrck02/go-3ds" target="_blank">go-3ds</a></td>
+<td>Go on the Nintendo 3DS</td>
+</tr>
+</tbody>
+</table>
+
+<blockquote>
+<p>⚠️ All of them are <strong>educational experiments</strong>, written with an AI assistant and pending review by their author: good for learning and playing, not for production.</p>
+</blockquote>

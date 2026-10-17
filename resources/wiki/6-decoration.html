@@ -14,7 +14,7 @@ gates, bridges that clear the river. They all follow the style rules, so you cho
 <td><img alt="The same street with cobbles, doors, windows with shutters, flower boxes, lamps, steps, roofs and chimneys" src="images/decoration-after.png"></td>
 </tr>
 <tr>
-<td colspan="2" align="center">The same map and relief; only the style differs (the <a href="example.md">example island</a>).</td>
+<td colspan="2" align="center">The same map and relief; only the style differs (the <a href="3-the-example-island.md">example island</a>).</td>
 </tr>
 </table>
 
