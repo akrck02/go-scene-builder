@@ -48,7 +48,7 @@ go run ./cmd/build-scene -map map.geojson -relief relieve.json -layer <span clas
 <code>-profile cpu.out</code> writes a CPU profile for <code>go tool pprof</code>. Then open the scene:
 <code>go run ./cmd/visor scene.glb</code> in go-renderer.</p>
 
-<p>The <a href="./3-the-example-island">example island</a> is a complete set of inputs to try it with.</p>
+<p>The <a href="./the-example-island">example island</a> is a complete set of inputs to try it with.</p>
 
 <h2 id="what-goes-in">What goes in</h2>
 
@@ -98,7 +98,7 @@ example island&rsquo;s are <code>relief.json</code> and <code>relief.f32</code>)
 
 <p><strong>Layers</strong> are grids of categories in the same format with <code>labels</code> (the name of every value), such
 as the biomes a climate simulator writes: <code>-layer biome=biomes.json</code>. They colour the terrain and
-sow vegetation (<a href="./6-decoration">decoration</a>).</p>
+sow vegetation (<a href="./decoration">decoration</a>).</p>
 
 <h2 id="what-comes-out">What comes out</h2>
 
