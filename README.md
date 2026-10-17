@@ -1,5 +1,7 @@
 <div align="center">
 
+<img alt="" src="docs/images/logo.svg" width="120">
+
 # Go scene builder
 
 **From a flat map to a 3D scene you can walk through.** Give it any **2D map** (GeoJSON whose
