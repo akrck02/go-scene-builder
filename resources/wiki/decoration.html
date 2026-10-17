@@ -1,0 +1,122 @@
+<h1 id="decoration">🌳 Decoration</h1>
+
+<p>A town of plain boxes is not a town. Decoration recipes add what makes it believable: doors and
+windows on the side that faces the street, flower boxes, lamps, trees in the gardens, towers at the
+gates, bridges that clear the river. They all follow the style rules, so you choose how much of each.</p>
+
+<table>
+<tr>
+<th width="50%">Before: <code>style-plain.yaml</code></th>
+<th width="50%">After: <code>style.yaml</code></th>
+</tr>
+<tr>
+<td><img alt="The example village's main street at eye level as plain boxes on a plain street" src="images/decoration-before.png"></td>
+<td><img alt="The same street with cobbles, doors, windows with shutters, flower boxes, lamps, steps, roofs and chimneys" src="images/decoration-after.png"></td>
+</tr>
+<tr>
+<td colspan="2" align="center">The same map and relief; only the style differs (the <a href="example.md">example island</a>).</td>
+</tr>
+</table>
+
+<h2 id="facades">Facades</h2>
+
+<p><code>facade</code> dresses the side of a volume that faces a street:</p>
+
+<ul>
+<li><code>door</code> (<code>round</code>: the share with a rounded top), <code>windows</code> (with <code>shutters</code>), <code>frames</code> (stone
+around windows and doors);</li>
+<li><code>flower_boxes</code> (with <code>flowers</code>, some <code>glowing</code>), <code>baskets</code> beside the door, <code>ivy</code> climbing the wall
+(a foliage material that takes the season);</li>
+<li><code>emblem</code>: a six-petal flower in relief above the door, a town&rsquo;s badge; <code>lamp</code>.</li>
+</ul>
+
+<p>With <code>facade: {sides: {spacing: 4.5}}</code> the other open walls (gables, backs, houses at the back of a
+plot) get plainer windows, further apart and without a door. Window glass is a single pane.</p>
+
+<p align="center">
+  <img alt="The example village's main street at night: lamps by the doors and some flower boxes glow" src="images/hero-dark.png" width="720">
+</p>
+
+<p align="center"><sub>At night the <code>glow</code> materials light up: the lamps beside the doors and the flower boxes marked <code>glowing</code>.</sub></p>
+
+<h2 id="plants">Plants</h2>
+
+<p>On ground features, <code>decorate: [{recipe: plants, …}]</code> sows shrubs, trees and flower beds, never on
+a volume.</p>
+
+<p align="center">
+  <img alt="The example village from above: two gardens sown with trees and shrubs beside the rows of houses" src="images/village.png" width="720">
+</p>
+
+<h2 id="models">Models</h2>
+
+<p>Small models (flowers, lamps, benches, trees…) live in libraries the style names
+(<code>models: [models.yaml]</code>) and are drawn as <strong>instances</strong>: one mesh, many copies, so a forest costs
+almost nothing. A model is made of parts (<code>box</code>, <code>cylinder</code>, <code>cone</code>, <code>blob</code>, <code>petals</code>, <code>ogive</code>) with
+colours and materials, or read from a binary glTF made elsewhere (<code>file: lamp.glb</code>, in metres,
+y up).</p>
+
+<ul>
+<li>Place them on points: <code>shape: {role: model, model: lamp, scale: [0.9, 1.1], turn: random}</code>.</li>
+<li>Sow them on ground features:
+<code>decorate: [{recipe: scatter, density: 0.01, models: {lily: 3, lamp: 1}, group: 8}]</code>.</li>
+</ul>
+
+<p align="center">
+  <img alt="The forest on the example island's hill: firs and broadleaf trees sown over the slope, each copy a little different" src="images/forest.png" width="720">
+</p>
+
+<p align="center"><sub>The example island's forest: <code>scatter</code> with two models of the library, <code>fir</code> and <code>broadleaf</code>, each built in variants.</sub></p>
+
+<p><strong>Variety.</strong> A model can be built in several variants (<code>variants: 3</code>): its parts move (<code>move</code>,
+metres) and change size (<code>grow</code>, a share) a little in each, and blobs bend out of round their own
+way (<code>wobble</code>; <code>smooth: false</code> for faceted, <code>rings</code> for how finely they are cut). Every copy picks
+a variant and changes its colour, warmth and size (<code>vary: {color: 0.12, warmth: 0.06, scale: [0.8,
+1.3]}</code>). Cylinders can narrow to <code>top_radius</code> (trunks), and parts can be tipped over (<code>roll</code>,
+degrees), so a cylinder can be a wheel.</p>
+
+<p><strong>Gates as models.</strong> The <code>ogive</code> part is a pointed arch (width, straight sides, depth; with
+<code>border</code>, a frame), so a gate can be built as a model and placed on a point; <code>gate_towers</code> then
+skips the gates near points of that kind (<code>except_near: main_gate</code>).</p>
+
+<p><strong>Keeping out of the way.</strong> Decorations keep off blocks (<code>clear</code>), lines with a width
+(<code>keep_off_lines</code>), models placed on their own and each other (<code>spacing</code>), and can keep to the edge
+of their feature (<code>edge</code>).</p>
+
+<h2 id="biomes">Biomes</h2>
+
+<p>A layer of categories (<code>-layer biome=biomes.json</code>) colours the terrain and sows vegetation: in the
+style, <code>terrain.biomes</code> gives each biome a colour and, optionally, <code>decorate</code> recipes that cover
+its cells, never on the map&rsquo;s polygons nor on its wide lines (rivers, roads).</p>
+<pre><code class="language-yaml"><span class="nt">terrain</span><span class="p">:</span>
+  <span class="nt">biomes</span><span class="p">:</span>
+    <span class="nt">conifers</span><span class="p">:</span> {<span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#5b6a49&#34;</span><span class="nt">, decorate</span><span class="p">:</span> <span class="p">[</span>{<span class="nt">recipe</span><span class="p">:</span> <span class="nt">scatter, density</span><span class="p">:</span> <span class="nt">0.00015, models</span><span class="p">:</span> {<span class="nt">fir</span><span class="p">:</span> <span class="nt">1}, scale</span><span class="p">:</span> <span class="p">[</span><span class="m">3</span><span class="p">,</span> <span class="m">5</span><span class="p">]</span>}<span class="p">]</span>}
+    <span class="nt">meadow</span><span class="p">:</span> {<span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#b7b47f&#34;</span>}
+</code></pre>
+
+<h2 id="rivers-and-bridges">Rivers and bridges</h2>
+
+<p>Rivers always run below the ground around them. With a relief, every water feature with an axis and
+a width digs its channel: the water lies <code>freeboard</code> metres (0.6) under the lower bank and never
+rises downstream, the bed is <code>depth</code> metres (2) under it, and the ground meets the water at the
+river&rsquo;s edge. Bridges (<code>follow: level</code> lines) that cross water keep their underside <code>clearance</code>
+metres (1.5) over it, reach out to dry ground and stand on abutments. In a live scene, where the
+terrain exists already, the water stays <code>above_bed</code> metres over the ground of its axis and bridges
+still clear it.</p>
+
+<h2 id="tall-walls-and-gates">Tall walls and gates</h2>
+
+<p>Wall lines can carry battlements along their top (<code>battlements: {height, width, gap}</code>), and the
+<code>gate_towers</code> recipe can close each gate above an arch (<code>arch</code>: metres from the ground), so a tall
+wall keeps its gate a gate.</p>
+
+<h2 id="levels-of-detail-and-file-size">Levels of detail and file size</h2>
+
+<p>Pieces carry simpler versions for when they look small on screen, and go-renderer picks one: the
+terrain is written at full resolution and at every 2nd, 4th and 8th vertex, with skirts under the
+chunk edges; facade details and plants hide from far away; models can declare simpler versions
+(<code>levels: [{below: 0.06, parts: […]}, {below: 0.006}]</code>, no parts = not drawn).</p>
+
+<p>To keep files light, quads share their four vertices, instanced models are written once for every
+chunk that uses them, corner stones are one column per corner, and boxes standing on the ground have
+no underside: the same town weighs about half.</p>

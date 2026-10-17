@@ -1,0 +1,1 @@
+{"decoration":[],"example":["decoration","style"],"pipeline":["decoration","example"],"quest":["decoration","pipeline","readme","style"],"readme":["decoration","example","pipeline","quest","style"],"style":["decoration","example"]}

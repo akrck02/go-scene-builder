@@ -1,0 +1,171 @@
+<h1 id="style-rules">🎨 Style rules</h1>
+
+<p>Style rules are where you decide what things look like. They are a YAML file read <strong>in cascade</strong>,
+like a style sheet: every rule whose selector matches a feature adds or replaces values, and the
+last one wins. So you write the general look first (&ldquo;buildings are plastered, with tiled roofs&rdquo;)
+and then the exceptions (&ldquo;shops with three floors or more have darker roofs&rdquo;).</p>
+
+<p align="center">
+  <img alt="A building with use shop and three floors meets three rules in order: the general building rule gives plastered walls and a gable roof, a street rule does not match and is skipped, a rule for shops with two floors or more replaces only the roof colour; the last match wins" src="images/cascade.svg" width="880">
+</p>
+
+<h2 id="a-complete-example">A complete example</h2>
+<pre><code class="language-yaml"><span class="nt">units</span><span class="p">:</span> <span class="l">m</span>
+<span class="nt">chunk</span><span class="p">:</span> <span class="m">0.5</span>                             <span class="c"># km: pieces are grouped in squares this big (larger for larger maps)</span>
+<span class="nt">environment</span><span class="p">:</span> {<span class="nt">sun</span><span class="p">:</span> <span class="p">[</span><span class="m">235</span><span class="p">,</span> <span class="m">38</span><span class="p">]</span>}          <span class="c"># azimuth and elevation in degrees; water_level adds a sea;</span>
+                                       <span class="c"># vertical_scale exaggerates the relief seen from above</span>
+<span class="nt">models</span><span class="p">:</span> <span class="p">[</span><span class="l">models.yaml]                 </span> <span class="c"># libraries of small models (see decoration)</span>
+<span class="nt">terrain</span><span class="p">:</span> {<span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#6b7f47&#34;</span><span class="nt">, bands</span><span class="p">:</span> <span class="p">[</span>{<span class="nt">above</span><span class="p">:</span> <span class="nt">350, color</span><span class="p">:</span> <span class="s2">&#34;#9e9e99&#34;</span><span class="nt">, blend</span><span class="p">:</span> <span class="m">30</span>}<span class="p">]</span>}
+<span class="nt">relations</span><span class="p">:</span>
+  <span class="nt">facing</span><span class="p">:</span> {<span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="nt">street}, reach</span><span class="p">:</span> <span class="m">20</span>}   <span class="c"># which side of a block looks onto a street</span>
+  <span class="nt">rows</span><span class="p">:</span> {<span class="nt">tolerance</span><span class="p">:</span> <span class="m">0.4</span>}                       <span class="c"># walls closer than this are shared (not drawn)</span>
+<span class="nt">rules</span><span class="p">:</span>
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">street}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">ground, width</span><span class="p">:</span> <span class="s2">&#34;width * 1000&#34;</span><span class="nt">, lift</span><span class="p">:</span> <span class="m">0.12</span>}
+    <span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#e6dcc4&#34;</span>
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">river}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">water, width</span><span class="p">:</span> <span class="s2">&#34;width * 1000&#34;</span><span class="nt">, above_bed</span><span class="p">:</span> <span class="m">1.8</span>}
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">building}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">volume, height</span><span class="p">:</span> <span class="s2">&#34;3.5 + (floors - 1) * 3&#34;</span>}
+    <span class="nt">walls</span><span class="p">:</span> {<span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#e9dfc9&#34;</span>}
+    <span class="nt">roof</span><span class="p">:</span> {<span class="nt">recipe</span><span class="p">:</span> <span class="nt">gable, pitch</span><span class="p">:</span> <span class="nt">38, ridge</span><span class="p">:</span> <span class="nt">long, eaves</span><span class="p">:</span> <span class="nt">0.5, color</span><span class="p">:</span> <span class="s2">&#34;#a4553a&#34;</span>}
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="nt">building, use</span><span class="p">:</span> <span class="nt">[shop, workshop], floors</span><span class="p">:</span> {<span class="nt">min</span><span class="p">:</span> <span class="m">3</span>}}
+    <span class="nt">roof</span><span class="p">:</span> {<span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#8e4631&#34;</span>}
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">wall}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">line, height</span><span class="p">:</span> <span class="nt">9, thickness</span><span class="p">:</span> <span class="m">3</span>}
+    <span class="nt">openings</span><span class="p">:</span> {<span class="nt">where</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="nt">street, class</span><span class="p">:</span> <span class="nt">road}, width</span><span class="p">:</span> <span class="m">6</span>}   <span class="c"># a gap where a road crosses it</span>
+    <span class="nt">decorate</span><span class="p">:</span> <span class="p">[</span>{<span class="nt">recipe</span><span class="p">:</span> <span class="nt">gate_towers, size</span><span class="p">:</span> <span class="nt">6, height</span><span class="p">:</span> <span class="m">13</span>}<span class="p">]</span>    <span class="c"># and a tower at each side of the gap</span>
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">bridge}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">line, follow</span><span class="p">:</span> <span class="nt">level, thickness</span><span class="p">:</span> <span class="s2">&#34;width * 1000&#34;</span><span class="nt">, height</span><span class="p">:</span> <span class="nt">0.4, sink</span><span class="p">:</span> <span class="m">0.8</span>}
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">tower}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">point, size</span><span class="p">:</span> <span class="nt">8, height</span><span class="p">:</span> <span class="nt">15, form</span><span class="p">:</span> <span class="l">round}</span>
+</code></pre>
+
+<h2 id="the-same-map-two-looks">The same map, two looks</h2>
+
+<p>The <a href="./example">example island</a> has two style files for one map. Only the rules for houses and
+towers differ: <code>style.yaml</code> plasters the walls and tiles the roofs, <code>style-stone.yaml</code> builds them
+in masonry with slate hip roofs, stone frames, corner stones and ivy.</p>
+
+<table>
+<tr>
+<th width="50%"><code>style.yaml</code>: plaster and tiles</th>
+<th width="50%"><code>style-stone.yaml</code>: stone and slate</th>
+</tr>
+<tr>
+<td><img alt="The village square with plastered houses under red gable roofs, shutters and a bell tower" src="images/style-plaster.png"></td>
+<td><img alt="The same square with stone houses under grey slate hip roofs and a grey-roofed bell tower" src="images/style-stone.png"></td>
+</tr>
+</table>
+<pre><code class="language-text">style.yaml                                           style-stone.yaml
+walls: {material: {pattern: plaster}}                walls: {material: {pattern: masonry}}
+roof: {recipe: gable, pitch: 35, color: &#34;#a4553a&#34;}   roof: {recipe: hip, pitch: 30, color: &#34;#4a4f57&#34;}
+stonework: {plinth: 0.6}                             stonework: {plinth: 0.8, quoins: {width: 0.45}}
+</code></pre>
+
+<p>(A few lines of each, with one colour of each palette; the files have the rest.)</p>
+
+<h2 id="selectors-and-values">Selectors and values</h2>
+
+<p>A selector (<code>when</code>) uses go-simulator&rsquo;s condition language: the <code>kind</code>, a property equal to a value
+or to one of a list, or a number within <code>{min, max}</code>.</p>
+
+<p>Values can be:</p>
+
+<ul>
+<li>numbers;</li>
+<li><code>#rrggbb</code> colours, or <code>&quot;@name&quot;</code>: the colour in the feature&rsquo;s property <code>name</code>;</li>
+<li>a <strong>palette</strong>, a list of colours: every feature takes one, always the same for the same id, so a
+street does not look painted from one bucket;</li>
+<li>arithmetic over the feature&rsquo;s numeric properties: <code>&quot;3.5 + (floors - 1) * 3&quot;</code>.</li>
+</ul>
+
+<h2 id="shapes-what-a-feature-becomes">Shapes: what a feature becomes</h2>
+
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Becomes</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>ground</code></td>
+<td>a polygon (or a line widened by <code>width</code>) draped <code>lift</code> metres over the relief: streets, gardens, squares</td>
+</tr>
+
+<tr>
+<td><code>water</code></td>
+<td>a level sheet <code>above_bed</code> metres over the bed under the feature&rsquo;s own line</td>
+</tr>
+
+<tr>
+<td><code>volume</code></td>
+<td>a block: walls from <code>sink</code> metres under the lowest ground under its corners up to <code>height</code>, where the roof starts</td>
+</tr>
+
+<tr>
+<td><code>line</code></td>
+<td>prisms of <code>thickness</code> and <code>height</code> in pieces of <code>segment</code> metres following the ground; with <code>follow: level</code>, one level prism whose top is <code>height</code> over its highest end, like a bridge deck</td>
+</tr>
+
+<tr>
+<td><code>point</code></td>
+<td>a square or round block of <code>size</code> metres, decorated like volumes</td>
+</tr>
+
+<tr>
+<td><code>model</code></td>
+<td>a model from a library, placed on a point (see <a href="./decoration">decoration</a>)</td>
+</tr>
+
+<tr>
+<td><code>none</code></td>
+<td>nothing</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="materials">Materials</h2>
+
+<p>Every part can set its material:</p>
+
+<ul>
+<li><code>material: {pattern: cobbles, scale: 0.35}</code>: a procedural pattern (<code>cobbles</code>, <code>masonry</code>,
+<code>plaster</code>, <code>shingles</code>, <code>planks</code> or <code>grass</code>, metres per cell) that go-renderer draws on the fly:
+detail without textures or extra triangles;</li>
+<li><code>material: {kind: glow}</code>: shines in the dark, like lanterns;</li>
+<li><code>material: {foliage: true}</code>: takes the season&rsquo;s colour;</li>
+<li><code>material: {hide_below: 0.1}</code>: hidden when it looks smaller than this share of the screen.</li>
+</ul>
+
+<h2 id="walls-and-roofs">Walls and roofs</h2>
+
+<p>Volumes are dressed by recipes:</p>
+
+<ul>
+<li><code>walls</code>: colour and material. Where a neighbour leans against a wall, only the part above its
+eaves is drawn.</li>
+<li><code>roof</code>: <code>recipe</code> <code>flat</code>, <code>gable</code> or <code>hip</code>, with <code>pitch</code> (degrees), <code>eaves</code> (overhang, metres),
+<code>color</code> and <code>ridge</code>: <code>long</code> or <code>short</code> (the side of the footprint&rsquo;s rectangle the ridge follows),
+<code>along_street</code> or <code>across_street</code> (relative to the side that faces a street). Under a sloped roof
+the walls stand on the footprint&rsquo;s smallest rectangle, like the roof.</li>
+<li><code>roof.chimneys: {share, width, above}</code>: stone chimneys on a share of the houses.</li>
+<li><code>stonework: {plinth, quoins}</code>: a stone plinth and corner stones.</li>
+</ul>
+
+<h2 id="houses-on-slopes">Houses on slopes</h2>
+
+<p>Houses stand halfway between their lowest and highest corners (<code>seat: middle</code>, the default; or
+<code>lowest</code>, <code>highest</code>): on a slope they are cut into the hill uphill and rise on a stone base
+downhill. A door above the street gets stone steps down to it, and the plinth leaves the door and
+its steps free. A footprint that is not nearly a rectangle keeps its walls on the footprint, so
+they meet the neighbours&rsquo; exactly, under a roof sloping from every side.</p>
+
+<h2 id="terrain">Terrain</h2>
+
+<p><code>terrain</code> sets the ground&rsquo;s <code>color</code>, its material, and <code>bands</code>: colours above a height
+(<code>{above, color, blend}</code>), for rock or snow. With a layer of biomes, <code>terrain.biomes</code> colours each
+biome and sows its plants (<a href="./decoration">decoration</a>).</p>

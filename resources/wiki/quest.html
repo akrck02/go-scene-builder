@@ -1,0 +1,725 @@
+<h1 id="the-go-scene-builder-quest">The go-scene-builder quest</h1>
+
+<p>Turn a flat map into a village you can walk through, one level at a time. Each level teaches one
+piece of go-scene-builder and ends with a new scene in go-renderer&rsquo;s viewer.</p>
+
+<p><img src="./images/quest/quest-map.svg" alt="The quest map: a road from START through 6 levels — Surveyor, Mason, Street builder, Geographer, Waterman and Gardener — to a final challenge, Town founder" /></p>
+
+<p>We will build a <strong>village</strong>: houses along a street, a square with a fountain, a garden, a river
+with a bridge, lamps that light up at night, and in the end a wall round it all, with gates.</p>
+
+<hr>
+
+<p>Every level has the same shape: <strong>the idea</strong> (explained with something from everyday life), <strong>the
+files</strong>, a <strong>checkpoint</strong> to know it works, and an optional <strong>bonus</strong>. You write two files and keep
+growing them: <code>map.geojson</code> (what is where) and <code>style.yaml</code> (what things look like).</p>
+
+<hr>
+
+<h2 id="before-you-start">Before you start</h2>
+
+<p>You need Go 1.25, GEOS (<code>sudo apt install libgeos-dev</code>, <code>brew install geos</code>) and go-renderer&rsquo;s
+viewer to look at the result:</p>
+<pre><code class="language-sh">git clone https://github.com/akrck02/go-scene-builder
+git clone https://github.com/akrck02/go-renderer
+mkdir village <span class="o">&amp;&amp;</span> <span class="nb">cd</span> village
+</code></pre>
+
+<p>Keep two commands at hand; after each change, build and look:</p>
+<pre><code class="language-sh"><span class="c1"># build the scene</span>
+go run ../go-scene-builder/cmd/build-scene -map map.geojson -style style.yaml -out village.glb
+<span class="c1"># look at it: drag to turn, scroll to zoom, Tab to walk, N for the night</span>
+go run ../go-renderer/cmd/visor village.glb
+</code></pre>
+
+<p>The pictures were taken with <code>-look-at 0,0 -zoom 0.45</code> added to the viewer.</p>
+
+<p>This is where everything will live by the end:</p>
+<pre><code>village/
+├── map.geojson      ← every level
+├── style.yaml       ← every level
+├── relief/main.go   ← level 4: writes the two files below
+├── relieve.json
+├── relieve.f32
+└── models.yaml      ← level 6
+</code></pre>
+
+<hr>
+
+<h2 id="level-1-the-surveyor">Level 1 · The Surveyor</h2>
+
+<table>
+<thead>
+<tr>
+<th>Mission</th>
+<th>Pieces</th>
+<th>Time</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>One house on a meadow</td>
+<td>GeoJSON features, <code>ground</code> and <code>volume</code> shapes, a gable roof</td>
+<td>8 min</td>
+</tr>
+</tbody>
+</table>
+
+<h4 id="the-idea">The idea</h4>
+
+<p>A <strong>surveyor</strong> draws a plan: this outline is a house, that one a field. The plan says <strong>where</strong>,
+never <strong>how it looks</strong>. That is the style&rsquo;s job, like a <strong>dress code</strong> for a party: &ldquo;houses wear
+cream walls and a red roof&rdquo;. Change the dress code and the same plan becomes another village.</p>
+
+<p>Every feature on the map has an <code>id</code> (its name, stable from one version to the next) and a <code>kind</code>
+(a free word: <code>house</code>, <code>meadow</code>; the style gives it a meaning).</p>
+
+<h4 id="build-it">Build it</h4>
+
+<p><code>map.geojson</code>, in metres, x to the east and y to the north, centred ten metres south of zero:</p>
+<pre><code class="language-json"><span class="p">{</span>
+  <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;FeatureCollection&#34;</span><span class="p">,</span>
+  <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;units&#34;</span><span class="p">:</span> <span class="s2">&#34;m&#34;</span><span class="p">,</span> <span class="nt">&#34;axes&#34;</span><span class="p">:</span> <span class="s2">&#34;east-north&#34;</span><span class="p">,</span> <span class="nt">&#34;origin&#34;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">-10</span><span class="p">]},</span>
+  <span class="nt">&#34;features&#34;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;meadow&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;meadow&#34;</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Polygon&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[[</span><span class="mi">-60</span><span class="p">,</span> <span class="mi">30</span><span class="p">],</span> <span class="p">[</span><span class="mi">60</span><span class="p">,</span> <span class="mi">30</span><span class="p">],</span> <span class="p">[</span><span class="mi">60</span><span class="p">,</span> <span class="mi">-60</span><span class="p">],</span> <span class="p">[</span><span class="mi">-60</span><span class="p">,</span> <span class="mi">-60</span><span class="p">],</span> <span class="p">[</span><span class="mi">-60</span><span class="p">,</span> <span class="mi">30</span><span class="p">]]]}},</span>
+    <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;house-1&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;house&#34;</span><span class="p">,</span> <span class="nt">&#34;floors&#34;</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Polygon&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[[</span><span class="mi">-4</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">14</span><span class="p">],</span> <span class="p">[</span><span class="mi">-4</span><span class="p">,</span> <span class="mi">14</span><span class="p">],</span> <span class="p">[</span><span class="mi">-4</span><span class="p">,</span> <span class="mi">4</span><span class="p">]]]}}</span>
+  <span class="p">]</span>
+<span class="p">}</span>
+</code></pre>
+
+<p><code>style.yaml</code>:</p>
+<pre><code class="language-yaml"><span class="nt">units</span><span class="p">:</span> <span class="l">m</span>
+<span class="nt">environment</span><span class="p">:</span> {<span class="nt">sun</span><span class="p">:</span> <span class="p">[</span><span class="m">220</span><span class="p">,</span> <span class="m">35</span><span class="p">]</span>}
+<span class="nt">rules</span><span class="p">:</span>
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">meadow}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="l">ground}</span>
+    <span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#8fa35a&#34;</span>
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">house}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">volume, height</span><span class="p">:</span> <span class="m">6</span>}
+    <span class="nt">walls</span><span class="p">:</span> {<span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#e9dfc9&#34;</span>}
+    <span class="nt">roof</span><span class="p">:</span> {<span class="nt">recipe</span><span class="p">:</span> <span class="nt">gable, pitch</span><span class="p">:</span> <span class="nt">38, color</span><span class="p">:</span> <span class="s2">&#34;#a4553a&#34;</span>}
+</code></pre>
+
+<p><code>ground</code> drapes a polygon over the ground; <code>volume</code> raises a block from it, <code>height</code> metres up to
+where the roof starts.</p>
+
+<h4 id="checkpoint">Checkpoint</h4>
+
+<p>The build prints <code>[ground 1 volume 1]</code>, and the viewer shows a cream house with a red roof on a
+green meadow.</p>
+
+<p><img src="./images/quest/level-1.jpg" alt="Level 1: one house with a red gable roof on a green meadow" /></p>
+
+<h4 id="bonus-optional-a-flat-roof">Bonus (optional): a flat roof</h4>
+
+<p>Make the house a modern box with a flat roof and grey walls.</p>
+
+<details>
+<summary>🔓 Show the solution</summary>
+
+<pre><code>walls: {color: "#9e9e99"}
+roof: {recipe: flat}</code></pre>
+
+</details>
+
+<p><img src="./images/quest/achievement-surveyor.svg" alt="Achievement unlocked: Surveyor" /></p>
+
+<p>Learn more: <a href="./pipeline">The pipeline</a> · <a href="./style">Style rules</a></p>
+
+<hr>
+
+<h2 id="level-2-the-mason">Level 2 · The Mason</h2>
+
+<table>
+<thead>
+<tr>
+<th>Mission</th>
+<th>Pieces</th>
+<th>Time</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Five houses, each its own height and colour</td>
+<td>properties, arithmetic, palettes, the cascade</td>
+<td>8 min</td>
+</tr>
+</tbody>
+</table>
+
+<h4 id="the-idea-1">The idea</h4>
+
+<p>Rules work like a <strong>style sheet</strong>, in <strong>cascade</strong>: every rule that matches adds its values, and
+when two say the same thing, the later one wins. Write the general look first (&ldquo;houses have gable
+roofs&rdquo;) and the exceptions after (&ldquo;shops have hip roofs&rdquo;).</p>
+
+<p>A <strong>palette</strong> is a box of paint pots: each house takes one, always the same one for the same id,
+so the street does not look painted from one bucket.</p>
+
+<h4 id="build-it-1">Build it</h4>
+
+<p>Add four houses to the map&rsquo;s features (the map can say anything the style reads: here <code>floors</code> and
+<code>use</code>):</p>
+<pre><code class="language-json"><span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;house-2&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;house&#34;</span><span class="p">,</span> <span class="nt">&#34;floors&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Polygon&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mi">14</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mi">14</span><span class="p">,</span> <span class="mi">12</span><span class="p">],</span> <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">12</span><span class="p">],</span> <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">]]]}}</span><span class="err">,</span>
+<span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;house-3&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;house&#34;</span><span class="p">,</span> <span class="nt">&#34;floors&#34;</span><span class="p">:</span> <span class="mi">3</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Polygon&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[[</span><span class="mi">16</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mi">24</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mi">24</span><span class="p">,</span> <span class="mi">15</span><span class="p">],</span> <span class="p">[</span><span class="mi">16</span><span class="p">,</span> <span class="mi">15</span><span class="p">],</span> <span class="p">[</span><span class="mi">16</span><span class="p">,</span> <span class="mi">4</span><span class="p">]]]}}</span><span class="err">,</span>
+<span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;house-4&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;house&#34;</span><span class="p">,</span> <span class="nt">&#34;floors&#34;</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Polygon&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[[</span><span class="mi">-14</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mi">-6</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mi">-6</span><span class="p">,</span> <span class="mi">13</span><span class="p">],</span> <span class="p">[</span><span class="mi">-14</span><span class="p">,</span> <span class="mi">13</span><span class="p">],</span> <span class="p">[</span><span class="mi">-14</span><span class="p">,</span> <span class="mi">4</span><span class="p">]]]}}</span><span class="err">,</span>
+<span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;house-5&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;house&#34;</span><span class="p">,</span> <span class="nt">&#34;floors&#34;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="nt">&#34;use&#34;</span><span class="p">:</span> <span class="s2">&#34;shop&#34;</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Polygon&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[[</span><span class="mi">-4</span><span class="p">,</span> <span class="mi">-4</span><span class="p">],</span> <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">-4</span><span class="p">],</span> <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">-13</span><span class="p">],</span> <span class="p">[</span><span class="mi">-4</span><span class="p">,</span> <span class="mi">-13</span><span class="p">],</span> <span class="p">[</span><span class="mi">-4</span><span class="p">,</span> <span class="mi">-4</span><span class="p">]]]}}</span>
+</code></pre>
+
+<p>Replace the house rule, and add the shop&rsquo;s exception after it:</p>
+<pre><code class="language-yaml">  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">house}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">volume, height</span><span class="p">:</span> <span class="s2">&#34;3 + (floors - 1) * 3&#34;</span>}
+    <span class="nt">walls</span><span class="p">:</span> {<span class="nt">color</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;#e9dfc9&#34;</span><span class="p">,</span> <span class="s2">&#34;#efe4cf&#34;</span><span class="p">,</span> <span class="s2">&#34;#e2d2b4&#34;</span><span class="p">,</span> <span class="s2">&#34;#f1ead9&#34;</span><span class="p">]</span>}
+    <span class="nt">roof</span><span class="p">:</span> {<span class="nt">recipe</span><span class="p">:</span> <span class="nt">gable, pitch</span><span class="p">:</span> <span class="nt">38, ridge</span><span class="p">:</span> <span class="nt">long, eaves</span><span class="p">:</span> <span class="nt">0.4, color</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;#a4553a&#34;</span><span class="p">,</span> <span class="s2">&#34;#9a4b33&#34;</span><span class="p">,</span> <span class="s2">&#34;#b0613f&#34;</span><span class="nt">], chimneys</span><span class="p">:</span> {<span class="nt">share</span><span class="p">:</span> <span class="m">0.5</span>}}
+    <span class="nt">stonework</span><span class="p">:</span> {<span class="nt">plinth</span><span class="p">:</span> <span class="nt">0.6, quoins</span><span class="p">:</span> <span class="kc">true</span>}
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="nt">house, use</span><span class="p">:</span> <span class="l">shop}</span>
+    <span class="nt">roof</span><span class="p">:</span> {<span class="nt">recipe</span><span class="p">:</span> <span class="nt">hip, color</span><span class="p">:</span> <span class="s2">&#34;#6f6a64&#34;</span>}
+</code></pre>
+
+<p><code>&quot;3 + (floors - 1) * 3&quot;</code> reads each house&rsquo;s <code>floors</code>: three metres for the ground floor and three
+for each one above. <code>chimneys: {share: 0.5}</code> puts one on half of the houses; <code>stonework</code> adds a stone
+base and corner stones.</p>
+
+<h4 id="checkpoint-1">Checkpoint</h4>
+
+<p>Five houses of one, two and three floors, in slightly different creams and reds, two with chimneys;
+the shop&rsquo;s roof is grey and slopes on four sides.</p>
+
+<p><img src="./images/quest/level-2.jpg" alt="Level 2: five houses, one with a grey hip roof" /></p>
+
+<h4 id="bonus-optional-tall-shops">Bonus (optional): tall shops</h4>
+
+<p>Shops with three floors or more get darker walls. Selectors take a number range.</p>
+
+<details>
+<summary>🔓 Show the solution</summary>
+
+<pre><code>  - when: {kind: house, use: shop, floors: {min: 3}}
+    walls: {color: "#cdbb98"}</code></pre>
+
+It goes after the other shop rule, so it wins.
+
+</details>
+
+<p><img src="./images/quest/achievement-mason.svg" alt="Achievement unlocked: Mason" /></p>
+
+<hr>
+
+<h2 id="level-3-the-street-builder">Level 3 · The Street builder</h2>
+
+<table>
+<thead>
+<tr>
+<th>Mission</th>
+<th>Pieces</th>
+<th>Time</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>A street, a square, and doors facing the street</td>
+<td>lines with a width, materials, relations, facades</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+
+<h4 id="the-idea-2">The idea</h4>
+
+<p>A house alone does not know where its front door goes. It needs to <strong>look around</strong>: which of its
+sides faces a street? That is a <strong>relation</strong>, worked out between blocks after they are built, like
+neighbours who know which house is opposite. The <strong>facade</strong> recipe then dresses that side with a
+door, windows with shutters and flower boxes.</p>
+
+<h4 id="build-it-2">Build it</h4>
+
+<p>Add a street (a line, widened by its <code>width</code>) and a square:</p>
+<pre><code class="language-json"><span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;high-street&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;street&#34;</span><span class="p">,</span> <span class="nt">&#34;width&#34;</span><span class="p">:</span> <span class="mi">6</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;LineString&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">-60</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">60</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]}}</span><span class="err">,</span>
+<span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;square&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;square&#34;</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Polygon&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">-4</span><span class="p">],</span> <span class="p">[</span><span class="mi">26</span><span class="p">,</span> <span class="mi">-4</span><span class="p">],</span> <span class="p">[</span><span class="mi">26</span><span class="p">,</span> <span class="mi">-16</span><span class="p">],</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">-16</span><span class="p">],</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">-4</span><span class="p">]]]}}</span>
+</code></pre>
+
+<p>The whole style now:</p>
+<pre><code class="language-yaml"><span class="nt">units</span><span class="p">:</span> <span class="l">m</span>
+<span class="nt">environment</span><span class="p">:</span> {<span class="nt">sun</span><span class="p">:</span> <span class="p">[</span><span class="m">220</span><span class="p">,</span> <span class="m">35</span><span class="p">]</span>}
+<span class="nt">relations</span><span class="p">:</span>
+  <span class="nt">facing</span><span class="p">:</span> {<span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="nt">street}, reach</span><span class="p">:</span> <span class="m">20</span>}
+<span class="nt">rules</span><span class="p">:</span>
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">meadow}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="l">ground}</span>
+    <span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#8fa35a&#34;</span>
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">street}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">ground, width</span><span class="p">:</span> <span class="s2">&#34;width&#34;</span><span class="nt">, lift</span><span class="p">:</span> <span class="m">0.3</span>}
+    <span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#d8cdb4&#34;</span>
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">square}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">ground, lift</span><span class="p">:</span> <span class="m">0.3</span>}
+    <span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#c9bfa8&#34;</span>
+    <span class="nt">material</span><span class="p">:</span> {<span class="nt">pattern</span><span class="p">:</span> <span class="nt">cobbles, scale</span><span class="p">:</span> <span class="m">0.4</span>}
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">house}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">volume, height</span><span class="p">:</span> <span class="s2">&#34;3 + (floors - 1) * 3&#34;</span>}
+    <span class="nt">walls</span><span class="p">:</span> {<span class="nt">color</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;#e9dfc9&#34;</span><span class="p">,</span> <span class="s2">&#34;#efe4cf&#34;</span><span class="p">,</span> <span class="s2">&#34;#e2d2b4&#34;</span><span class="p">,</span> <span class="s2">&#34;#f1ead9&#34;</span><span class="p">]</span>}
+    <span class="nt">roof</span><span class="p">:</span> {<span class="nt">recipe</span><span class="p">:</span> <span class="nt">gable, pitch</span><span class="p">:</span> <span class="nt">38, ridge</span><span class="p">:</span> <span class="nt">along_street, eaves</span><span class="p">:</span> <span class="nt">0.4, color</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;#a4553a&#34;</span><span class="p">,</span> <span class="s2">&#34;#9a4b33&#34;</span><span class="p">,</span> <span class="s2">&#34;#b0613f&#34;</span><span class="nt">], chimneys</span><span class="p">:</span> {<span class="nt">share</span><span class="p">:</span> <span class="m">0.5</span>}}
+    <span class="nt">stonework</span><span class="p">:</span> {<span class="nt">plinth</span><span class="p">:</span> <span class="nt">0.6, quoins</span><span class="p">:</span> <span class="kc">true</span>}
+    <span class="nt">facade</span><span class="p">:</span>
+      <span class="nt">door</span><span class="p">:</span> {<span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#5b3a26&#34;</span><span class="nt">, round</span><span class="p">:</span> <span class="m">0.5</span>}
+      <span class="nt">windows</span><span class="p">:</span> {<span class="nt">shutters</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;#2f5d50&#34;</span><span class="p">,</span> <span class="s2">&#34;#7a3b2e&#34;</span><span class="p">]</span>}
+      <span class="nt">flower_boxes</span><span class="p">:</span> {<span class="nt">share</span><span class="p">:</span> <span class="nt">0.5, flowers</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;#d23c4f&#34;</span><span class="p">,</span> <span class="s2">&#34;#f2c14e&#34;</span><span class="p">]</span>}
+      <span class="nt">sides</span><span class="p">:</span> {<span class="nt">spacing</span><span class="p">:</span> <span class="m">4.5</span>}
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="nt">house, use</span><span class="p">:</span> <span class="l">shop}</span>
+    <span class="nt">roof</span><span class="p">:</span> {<span class="nt">recipe</span><span class="p">:</span> <span class="nt">hip, color</span><span class="p">:</span> <span class="s2">&#34;#6f6a64&#34;</span>}
+</code></pre>
+
+<ul>
+<li><code>relations.facing</code>: sides within 20 metres of a street face it.</li>
+<li><code>lift: 0.3</code> keeps the street a little over the meadow, so the two do not flicker.</li>
+<li><code>material: {pattern: cobbles}</code> draws paving stones on the square with no texture: go-renderer
+makes the pattern as it draws.</li>
+<li><code>ridge: along_street</code>: the roof&rsquo;s ridge runs along the street.</li>
+<li><code>facade.sides</code> gives the other walls plainer windows, further apart.</li>
+</ul>
+
+<h4 id="checkpoint-2">Checkpoint</h4>
+
+<p>The build says <code>5 facing a street</code>. Each house has a door and windows on its street side, some with
+flowers; the square is paved.</p>
+
+<p><img src="./images/quest/level-3.jpg" alt="Level 3: houses facing a street, with doors and windows, and a paved square" /></p>
+
+<h4 id="bonus-optional-ivy-and-lamps-by-the-doors">Bonus (optional): ivy and lamps by the doors</h4>
+
+<details>
+<summary>🔓 Show the solution</summary>
+
+<pre><code>    facade:
+      …
+      ivy: {share: 0.3}
+      lamp: {}</code></pre>
+
+Ivy is a foliage material: it takes the season's colour when a simulation sets one.
+
+</details>
+
+<p><img src="./images/quest/achievement-street-builder.svg" alt="Achievement unlocked: Street builder" /></p>
+
+<p>Learn more: <a href="./decoration">Decoration: facades</a></p>
+
+<hr>
+
+<h2 id="level-4-the-geographer">Level 4 · The Geographer</h2>
+
+<table>
+<thead>
+<tr>
+<th>Mission</th>
+<th>Pieces</th>
+<th>Time</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Ground with a slope, and houses that stand on it</td>
+<td>the relief, terrain colours</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+
+<h4 id="the-idea-3">The idea</h4>
+
+<p>A <strong>relief</strong> is a <strong>chessboard of heights</strong>: every square says how high the ground is there. It
+lives in two files: a small label (<code>relieve.json</code>: how many squares, how big, where) and the
+heights themselves (<code>relieve.f32</code>: one number per square, row by row from the north).</p>
+
+<p>Houses on a slope stand halfway between their lowest and highest corners: cut into the hill uphill,
+on a stone base downhill.</p>
+
+<h4 id="build-it-3">Build it</h4>
+
+<p>Write the relief with a small Go program, <code>relief/main.go</code>:</p>
+<pre><code class="language-go"><span class="c1">// Command relief writes the ground the village stands on: relieve.json, the grid&#39;s size and</span>
+<span class="c1">// place, and relieve.f32, a height in metres for every cell, row by row from the north.</span>
+<span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+	<span class="s">&#34;encoding/binary&#34;</span>
+	<span class="s">&#34;encoding/json&#34;</span>
+	<span class="s">&#34;log&#34;</span>
+	<span class="s">&#34;math&#34;</span>
+	<span class="s">&#34;os&#34;</span>
+<span class="p">)</span>
+
+<span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+	<span class="kd">const</span> <span class="p">(</span>
+		<span class="nx">columns</span><span class="p">,</span> <span class="nx">rows</span> <span class="p">=</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">70</span> <span class="c1">// cells</span>
+		<span class="nx">cell</span>          <span class="p">=</span> <span class="mf">2.0</span>    <span class="c1">// metres a side</span>
+		<span class="nx">west</span><span class="p">,</span> <span class="nx">north</span>   <span class="p">=</span> <span class="o">-</span><span class="mf">80.0</span><span class="p">,</span> <span class="mf">70.0</span>
+	<span class="p">)</span>
+	<span class="nx">heights</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">([]</span><span class="kt">float32</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">columns</span><span class="o">*</span><span class="nx">rows</span><span class="p">)</span>
+	<span class="k">for</span> <span class="nx">row</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">rows</span> <span class="p">{</span>
+		<span class="k">for</span> <span class="nx">column</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">columns</span> <span class="p">{</span>
+			<span class="nx">east</span> <span class="o">:=</span> <span class="nx">west</span> <span class="o">+</span> <span class="p">(</span><span class="nb">float64</span><span class="p">(</span><span class="nx">column</span><span class="p">)</span><span class="o">+</span><span class="mf">0.5</span><span class="p">)</span><span class="o">*</span><span class="nx">cell</span>
+			<span class="nx">northing</span> <span class="o">:=</span> <span class="nx">north</span> <span class="o">-</span> <span class="p">(</span><span class="nb">float64</span><span class="p">(</span><span class="nx">row</span><span class="p">)</span><span class="o">+</span><span class="mf">0.5</span><span class="p">)</span><span class="o">*</span><span class="nx">cell</span>
+			<span class="nx">heights</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">heights</span><span class="p">,</span> <span class="nb">float32</span><span class="p">(</span><span class="nf">height</span><span class="p">(</span><span class="nx">east</span><span class="p">,</span> <span class="nx">northing</span><span class="p">)))</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="nx">header</span> <span class="o">:=</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">{</span><span class="s">&#34;columns&#34;</span><span class="p">:</span> <span class="nx">columns</span><span class="p">,</span> <span class="s">&#34;rows&#34;</span><span class="p">:</span> <span class="nx">rows</span><span class="p">,</span> <span class="s">&#34;cell&#34;</span><span class="p">:</span> <span class="nx">cell</span><span class="p">,</span> <span class="s">&#34;west&#34;</span><span class="p">:</span> <span class="nx">west</span><span class="p">,</span> <span class="s">&#34;north&#34;</span><span class="p">:</span> <span class="nx">north</span><span class="p">,</span> <span class="s">&#34;units&#34;</span><span class="p">:</span> <span class="s">&#34;m&#34;</span><span class="p">}</span>
+	<span class="nx">content</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">json</span><span class="p">.</span><span class="nf">Marshal</span><span class="p">(</span><span class="nx">header</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">WriteFile</span><span class="p">(</span><span class="s">&#34;relieve.json&#34;</span><span class="p">,</span> <span class="nx">content</span><span class="p">,</span> <span class="mi">0</span><span class="nx">o644</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">file</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Create</span><span class="p">(</span><span class="s">&#34;relieve.f32&#34;</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">defer</span> <span class="nx">file</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">binary</span><span class="p">.</span><span class="nf">Write</span><span class="p">(</span><span class="nx">file</span><span class="p">,</span> <span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">,</span> <span class="nx">heights</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// height is a slope rising to the north, a little rolling, down to a valley in the south.</span>
+<span class="kd">func</span> <span class="nf">height</span><span class="p">(</span><span class="nx">east</span><span class="p">,</span> <span class="nx">north</span> <span class="kt">float64</span><span class="p">)</span> <span class="kt">float64</span> <span class="p">{</span>
+	<span class="nx">slope</span> <span class="o">:=</span> <span class="mf">0.12</span> <span class="o">*</span> <span class="nx">north</span>
+	<span class="nx">rolling</span> <span class="o">:=</span> <span class="mf">1.5</span> <span class="o">*</span> <span class="nx">math</span><span class="p">.</span><span class="nf">Sin</span><span class="p">(</span><span class="nx">east</span><span class="o">/</span><span class="mi">14</span><span class="p">)</span> <span class="o">*</span> <span class="nx">math</span><span class="p">.</span><span class="nf">Cos</span><span class="p">(</span><span class="nx">north</span><span class="o">/</span><span class="mi">18</span><span class="p">)</span>
+	<span class="nx">valley</span> <span class="o">:=</span> <span class="o">-</span><span class="mi">4</span> <span class="o">*</span> <span class="nx">math</span><span class="p">.</span><span class="nf">Exp</span><span class="p">(</span><span class="o">-</span><span class="nx">math</span><span class="p">.</span><span class="nf">Pow</span><span class="p">((</span><span class="nx">north</span><span class="o">+</span><span class="mi">38</span><span class="p">)</span><span class="o">/</span><span class="mi">14</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+	<span class="k">return</span> <span class="mi">20</span> <span class="o">+</span> <span class="nx">slope</span> <span class="o">+</span> <span class="nx">rolling</span> <span class="o">+</span> <span class="nx">valley</span>
+<span class="p">}</span>
+</code></pre>
+<pre><code class="language-sh">go mod init example.com/village   <span class="c1"># once, for the program</span>
+go run ./relief                   <span class="c1"># writes relieve.json and relieve.f32</span>
+</code></pre>
+
+<p>The terrain now replaces the meadow: <strong>remove the meadow</strong> from the map and its rule from the
+style, and add to the style, under <code>environment</code>:</p>
+<pre><code class="language-yaml"><span class="nt">terrain</span><span class="p">:</span> {<span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#8fa35a&#34;</span><span class="nt">, bands</span><span class="p">:</span> <span class="p">[</span>{<span class="nt">above</span><span class="p">:</span> <span class="nt">26, color</span><span class="p">:</span> <span class="s2">&#34;#7d8f4c&#34;</span><span class="nt">, blend</span><span class="p">:</span> <span class="m">3</span>}<span class="p">]</span>}
+</code></pre>
+
+<p>Build with the relief:</p>
+<pre><code class="language-sh">go run ../go-scene-builder/cmd/build-scene -map map.geojson -relief relieve.json -style style.yaml -out village.glb
+</code></pre>
+
+<h4 id="checkpoint-3">Checkpoint</h4>
+
+<p>The ground rises to the north and rolls a little; the street follows it, the houses stand on it
+with stone bases where it falls away, and the ground is darker above 26 metres.</p>
+
+<p><img src="./images/quest/level-4.jpg" alt="Level 4: the village on a gentle slope" /></p>
+
+<h4 id="bonus-optional-snowy-tops">Bonus (optional): snowy tops</h4>
+
+<details>
+<summary>🔓 Show the solution</summary>
+
+Add a band: `{above: 30, color: "#f2f2f0", blend: 2}` after the first.
+
+</details>
+
+<p><img src="./images/quest/achievement-geographer.svg" alt="Achievement unlocked: Geographer" /></p>
+
+<p>Learn more: <a href="./style">Houses on slopes</a> · <a href="./pipeline">The pipeline: what goes in</a></p>
+
+<hr>
+
+<h2 id="level-5-the-waterman">Level 5 · The Waterman</h2>
+
+<table>
+<thead>
+<tr>
+<th>Mission</th>
+<th>Pieces</th>
+<th>Time</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>A river in the valley, and a bridge over it</td>
+<td><code>water</code> shapes, level lines</td>
+<td>8 min</td>
+</tr>
+</tbody>
+</table>
+
+<h4 id="the-idea-4">The idea</h4>
+
+<p>Water always lies <strong>level</strong>, and a river <strong>digs its own bed</strong>: with a relief, the builder cuts a
+channel so the water stays under its banks and never runs uphill. A bridge is a <strong>plank laid
+level</strong> from one bank to the other, high enough for the water to pass under.</p>
+
+<h4 id="build-it-4">Build it</h4>
+
+<p>Add the river, the bridge and a lane from the street to it:</p>
+<pre><code class="language-json"><span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;river&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;river&#34;</span><span class="p">,</span> <span class="nt">&#34;width&#34;</span><span class="p">:</span> <span class="mi">10</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;LineString&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">-60</span><span class="p">,</span> <span class="mi">-40</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">-32</span><span class="p">],</span> <span class="p">[</span><span class="mi">60</span><span class="p">,</span> <span class="mi">-44</span><span class="p">]]}}</span><span class="err">,</span>
+<span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;bridge&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;bridge&#34;</span><span class="p">,</span> <span class="nt">&#34;width&#34;</span><span class="p">:</span> <span class="mi">4</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;LineString&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">-20</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">-52</span><span class="p">]]}}</span><span class="err">,</span>
+<span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;lane&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;street&#34;</span><span class="p">,</span> <span class="nt">&#34;width&#34;</span><span class="p">:</span> <span class="mi">4</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;LineString&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">-4</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">-20</span><span class="p">]]}}</span>
+</code></pre>
+
+<p>And two rules, before the houses:</p>
+<pre><code class="language-yaml">  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">river}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">water, width</span><span class="p">:</span> <span class="s2">&#34;width&#34;</span>}
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">bridge}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">line, follow</span><span class="p">:</span> <span class="nt">level, thickness</span><span class="p">:</span> <span class="s2">&#34;width&#34;</span><span class="nt">, height</span><span class="p">:</span> <span class="m">0.5</span>}
+    <span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#9c9486&#34;</span>
+    <span class="nt">material</span><span class="p">:</span> {<span class="nt">pattern</span><span class="p">:</span> <span class="nt">masonry, scale</span><span class="p">:</span> <span class="m">0.5</span>}
+</code></pre>
+
+<h4 id="checkpoint-4">Checkpoint</h4>
+
+<p>A blue river crosses the valley in the south, in a channel of its own; a stone bridge carries the
+lane over it.</p>
+
+<p><img src="./images/quest/level-5.jpg" alt="Level 5: a river in the valley and a stone bridge over it" /></p>
+
+<h4 id="bonus-optional-the-sea">Bonus (optional): the sea</h4>
+
+<details>
+<summary>🔓 Show the solution</summary>
+
+`environment: {sun: [220, 35], water_level: 16}` adds a sea at 16 metres: the low ground floods.
+
+</details>
+
+<p><img src="./images/quest/achievement-waterman.svg" alt="Achievement unlocked: Waterman" /></p>
+
+<p>Learn more: <a href="./decoration">Rivers and bridges</a></p>
+
+<hr>
+
+<h2 id="level-6-the-gardener">Level 6 · The Gardener</h2>
+
+<table>
+<thead>
+<tr>
+<th>Mission</th>
+<th>Pieces</th>
+<th>Time</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>A garden, lamps that light at night, a fountain and benches</td>
+<td>plants, model libraries, glow</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+
+<h4 id="the-idea-5">The idea</h4>
+
+<p>A <strong>model library</strong> is a <strong>box of toys</strong>: a lamp, a fountain, a bench, each built once from simple
+parts (boxes, cylinders, cones, blobs). The map places them, or a recipe <strong>sows</strong> them over a
+ground, and go-renderer draws every copy of a toy in one go, so a hundred cost no more than one.</p>
+
+<h4 id="build-it-5">Build it</h4>
+
+<p><code>models.yaml</code>, in metres, the origin on the ground:</p>
+<pre><code class="language-yaml"><span class="nt">models</span><span class="p">:</span>
+  <span class="nt">lamp</span><span class="p">:</span>
+    <span class="nt">parts</span><span class="p">:</span>
+      - {<span class="nt">shape</span><span class="p">:</span> <span class="nt">cylinder, radius</span><span class="p">:</span> <span class="nt">0.06, height</span><span class="p">:</span> <span class="nt">3, color</span><span class="p">:</span> <span class="s2">&#34;#2b2b2b&#34;</span>}
+      - {<span class="nt">shape</span><span class="p">:</span> <span class="nt">box, size</span><span class="p">:</span> <span class="nt">[0.3, 0.4, 0.3], at</span><span class="p">:</span> <span class="nt">[0, 3, 0], color</span><span class="p">:</span> <span class="s2">&#34;#ffd98a&#34;</span><span class="nt">, material</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">glow}}</span>
+  <span class="nt">fountain</span><span class="p">:</span>
+    <span class="nt">parts</span><span class="p">:</span>
+      - {<span class="nt">shape</span><span class="p">:</span> <span class="nt">cylinder, radius</span><span class="p">:</span> <span class="nt">1.6, height</span><span class="p">:</span> <span class="nt">0.5, sides</span><span class="p">:</span> <span class="nt">16, color</span><span class="p">:</span> <span class="s2">&#34;#b9b2a5&#34;</span>}
+      - {<span class="nt">shape</span><span class="p">:</span> <span class="nt">cylinder, radius</span><span class="p">:</span> <span class="nt">1.3, height</span><span class="p">:</span> <span class="nt">0.52, sides</span><span class="p">:</span> <span class="nt">16, color</span><span class="p">:</span> <span class="s2">&#34;#5d8fb0&#34;</span>}
+      - {<span class="nt">shape</span><span class="p">:</span> <span class="nt">cylinder, radius</span><span class="p">:</span> <span class="nt">0.2, height</span><span class="p">:</span> <span class="nt">1.4, color</span><span class="p">:</span> <span class="s2">&#34;#b9b2a5&#34;</span>}
+  <span class="nt">bench</span><span class="p">:</span>
+    <span class="nt">parts</span><span class="p">:</span>
+      - {<span class="nt">shape</span><span class="p">:</span> <span class="nt">box, size</span><span class="p">:</span> <span class="nt">[1.6, 0.08, 0.4], at</span><span class="p">:</span> <span class="nt">[0, 0.42, 0], color</span><span class="p">:</span> <span class="s2">&#34;#6b4a2e&#34;</span>}
+      - {<span class="nt">shape</span><span class="p">:</span> <span class="nt">box, size</span><span class="p">:</span> <span class="nt">[0.1, 0.42, 0.4], at</span><span class="p">:</span> <span class="nt">[-0.7, 0, 0], color</span><span class="p">:</span> <span class="s2">&#34;#3b3b3b&#34;</span>}
+      - {<span class="nt">shape</span><span class="p">:</span> <span class="nt">box, size</span><span class="p">:</span> <span class="nt">[0.1, 0.42, 0.4], at</span><span class="p">:</span> <span class="nt">[0.7, 0, 0], color</span><span class="p">:</span> <span class="s2">&#34;#3b3b3b&#34;</span>}
+</code></pre>
+
+<p>The lamp&rsquo;s glass is <code>glow</code>: it shines in the dark. Add a garden, two lamps and the fountain:</p>
+<pre><code class="language-json"><span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;garden&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;garden&#34;</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Polygon&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[[</span><span class="mi">-24</span><span class="p">,</span> <span class="mi">-4</span><span class="p">],</span> <span class="p">[</span><span class="mi">-6</span><span class="p">,</span> <span class="mi">-4</span><span class="p">],</span> <span class="p">[</span><span class="mi">-6</span><span class="p">,</span> <span class="mi">-18</span><span class="p">],</span> <span class="p">[</span><span class="mi">-24</span><span class="p">,</span> <span class="mi">-18</span><span class="p">],</span> <span class="p">[</span><span class="mi">-24</span><span class="p">,</span> <span class="mi">-4</span><span class="p">]]]}}</span><span class="err">,</span>
+<span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;lamp-1&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;lamp&#34;</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Point&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[</span><span class="mi">-2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]}}</span><span class="err">,</span>
+<span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;lamp-2&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;lamp&#34;</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Point&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">]}}</span><span class="err">,</span>
+<span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;fountain&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;fountain&#34;</span><span class="p">},</span> <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Point&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[</span><span class="mi">18</span><span class="p">,</span> <span class="mi">-10</span><span class="p">]}}</span>
+</code></pre>
+
+<p>In the style, name the library after <code>units</code>:</p>
+<pre><code class="language-yaml"><span class="nt">models</span><span class="p">:</span> <span class="p">[</span><span class="l">models.yaml]</span>
+</code></pre>
+
+<p>and add, before the houses:</p>
+<pre><code class="language-yaml">  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">garden}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">ground, lift</span><span class="p">:</span> <span class="m">0.05</span>}
+    <span class="nt">color</span><span class="p">:</span> <span class="s2">&#34;#6f8f44&#34;</span>
+    <span class="nt">material</span><span class="p">:</span> {<span class="nt">pattern</span><span class="p">:</span> <span class="nt">grass, scale</span><span class="p">:</span> <span class="m">0.5</span>}
+    <span class="nt">decorate</span><span class="p">:</span> <span class="p">[</span>{<span class="nt">recipe</span><span class="p">:</span> <span class="nt">plants, density</span><span class="p">:</span> <span class="nt">0.2, trees</span><span class="p">:</span> <span class="nt">0.3, beds</span><span class="p">:</span> <span class="nt">0.3, clear</span><span class="p">:</span> <span class="m">1</span>}<span class="p">]</span>
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">lamp}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">model, model</span><span class="p">:</span> <span class="l">lamp}</span>
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">fountain}</span>
+    <span class="nt">shape</span><span class="p">:</span> {<span class="nt">role</span><span class="p">:</span> <span class="nt">model, model</span><span class="p">:</span> <span class="l">fountain}</span>
+  - <span class="nt">when</span><span class="p">:</span> {<span class="nt">kind</span><span class="p">:</span> <span class="l">square}</span>
+    <span class="nt">decorate</span><span class="p">:</span> <span class="p">[</span>{<span class="nt">recipe</span><span class="p">:</span> <span class="nt">scatter, density</span><span class="p">:</span> <span class="nt">0.01, models</span><span class="p">:</span> {<span class="nt">bench</span><span class="p">:</span> <span class="nt">1}, edge</span><span class="p">:</span> <span class="kc">true</span>}<span class="p">]</span>
+</code></pre>
+
+<p>The square&rsquo;s second rule adds to the first: the cascade again.</p>
+
+<h4 id="checkpoint-5">Checkpoint</h4>
+
+<p>Shrubs, trees and flower beds in the garden, a fountain in the square, benches at its edge, lamps
+by the street. Press <code>N</code> in the viewer: the lamps glow.</p>
+
+<p><img src="./images/quest/level-6.jpg" alt="Level 6: a garden of shrubs and trees beside the houses, a fountain in the square" /></p>
+
+<p><img src="./images/quest/level-6-night.jpg" alt="Level 6 at night: the lamps glow by the street" /></p>
+
+<h4 id="bonus-optional-a-flowerbed-of-lilies">Bonus (optional): a flowerbed of lilies</h4>
+
+<p>Sow lilies over the garden, with a model of your own.</p>
+
+<details>
+<summary>🔓 Show the solution</summary>
+
+<pre><code>  lily:
+    parts:
+      - {shape: cylinder, radius: 0.01, height: 0.35, color: "#4f6b35"}
+      - {shape: petals, count: 6, length: 0.07, width: 0.035, tilt: 35, at: [0, 0.35, 0], color: ["#7da7e0", "#f2f0e8"]}</code></pre>
+
+and in the garden's `decorate`: `{recipe: scatter, density: 0.5, models: {lily: 1}, group: 8}`.
+
+</details>
+
+<p><img src="./images/quest/achievement-gardener.svg" alt="Achievement unlocked: Gardener" /></p>
+
+<p>Learn more: <a href="./decoration">Models</a> · <a href="./decoration">Plants</a></p>
+
+<hr>
+
+<h2 id="final-challenge-town-founder">Final challenge · Town founder</h2>
+
+<p>Build a <strong>wall</strong> round the village, 7 metres high with battlements, and a <strong>gate</strong> with a tower at
+each side wherever the street goes through it.</p>
+
+<blockquote>
+<p><strong>Hint:</strong> the wall is a closed line on the map, its <code>kind</code> is <code>wall</code>. A line shape has <code>height</code>
+and <code>thickness</code>; <code>openings: {where: …, width}</code> cuts gaps where a street crosses, and the
+<code>gate_towers</code> recipe stands towers beside them.</p>
+</blockquote>
+
+<p>Try it on your own first, then compare with the solution.</p>
+
+<p><img src="./images/quest/final.jpg" alt="The final challenge: the village inside a stone wall with battlements and towers at the gates" /></p>
+
+<details>
+<summary>🔓 Show the solution</summary>
+
+<pre><code>{"type": "Feature", "properties": {"id": "wall", "kind": "wall"}, "geometry": {"type": "LineString", "coordinates": [[-45, 22], [45, 22], [45, -26], [-45, -26], [-45, 22]]}}</code></pre>
+
+<pre><code>  - when: {kind: wall}
+    shape: {role: line, height: 7, thickness: 2}
+    color: "#a59c8c"
+    material: {pattern: masonry, scale: 0.6}
+    battlements: {height: 1, width: 1, gap: 1}
+    openings: {where: {kind: street}, width: 6}
+    decorate: [{recipe: gate_towers, size: 5, height: 11}]</code></pre>
+
+</details>
+
+<p><img src="./images/quest/achievement-final.svg" alt="Rare achievement unlocked: Town founder" /></p>
+
+<hr>
+
+<h2 id="well-done">Well done</h2>
+
+<p><img src="./images/quest/achievements-all.svg" alt="All seven achievements: Surveyor, Mason, Street builder, Geographer, Waterman, Gardener and Town founder" /></p>
+
+<p>You turned a few lines of JSON into a village with a river, gardens and walls, and every look in it
+comes from rules you wrote.</p>
+
+<h3 id="ideas-to-keep-going">Ideas to keep going</h3>
+
+<table>
+<thead>
+<tr>
+<th>Idea</th>
+<th>Difficulty</th>
+<th>Hint</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>A second street, and houses facing both</td>
+<td>⭐</td>
+<td>Another <code>street</code> line; the relations do the rest</td>
+</tr>
+
+<tr>
+<td>A round tower</td>
+<td>⭐</td>
+<td>A point with <code>shape: {role: point, size: 8, height: 15, form: round}</code></td>
+</tr>
+
+<tr>
+<td>A forest by biome</td>
+<td>⭐⭐</td>
+<td>A layer of categories, <code>-layer biome=biomes.json</code>, and <code>terrain.biomes</code> (<a href="./decoration">biomes</a>)</td>
+</tr>
+
+<tr>
+<td>A model made in Blender</td>
+<td>⭐⭐</td>
+<td><code>file: lamp.glb</code> in the library, in metres, y up</td>
+</tr>
+
+<tr>
+<td>A town that grows by itself</td>
+<td>⭐⭐⭐</td>
+<td>go-simulator&rsquo;s urban plugin builds on the same rules</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<table>
+<thead>
+<tr>
+<th>You see</th>
+<th>Why, and what to do</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>pkg-config: geos not found</code></td>
+<td>Install GEOS: <code>libgeos-dev</code> on Debian and Ubuntu, <code>geos</code> with Homebrew</td>
+</tr>
+
+<tr>
+<td>The build lists a feature among its first warnings</td>
+<td>No rule styles its <code>kind</code>, or a value is wrong: the warning says which</td>
+</tr>
+
+<tr>
+<td>The viewer shows nothing, or only grey</td>
+<td>Every feature is <code>none</code>, or far from <code>origin</code>: check the map&rsquo;s <code>origin</code> and units</td>
+</tr>
+
+<tr>
+<td>A street flickers over the ground</td>
+<td>Give it a <code>lift</code> (a few tenths of a metre)</td>
+</tr>
+
+<tr>
+<td><code>0 facing a street</code></td>
+<td><code>relations.facing</code> is missing, or its <code>reach</code> is too short for the gap between houses and street</td>
+</tr>
+
+<tr>
+<td>Houses float or sink</td>
+<td>Without a relief the ground is flat; with one, check that the relief covers the whole map</td>
+</tr>
+</tbody>
+</table>
+
+<hr>
+
+<p><a href="./readme">← All the documentation</a></p>

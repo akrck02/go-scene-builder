@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" width="880" height="300" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <style>
+    .bg { fill: #ffffff; }
+    .box { fill: #f6f8fa; stroke: #d0d7de; }
+    .accent { fill: #ddf4ff; stroke: #54aeff; }
+    .skip { fill: #ffffff; stroke: #d0d7de; }
+    .title { fill: #1f2328; font-size: 15px; font-weight: 600; }
+    .small { fill: #1f2328; font-size: 13px; font-weight: 600; }
+    .text { fill: #59636e; font-size: 12.5px; }
+    .faded { fill: #8c959f; font-size: 12.5px; text-decoration: line-through; }
+    .code { fill: #0969da; font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .muted { fill: #8c959f; font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .label { fill: #59636e; font-size: 11.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .arrow { stroke: #8c959f; stroke-width: 1.6; fill: none; }
+    .head { fill: #8c959f; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; }
+      .box { fill: #161b22; stroke: #30363d; }
+      .accent { fill: #0c2d4b; stroke: #1f6feb; }
+      .skip { fill: #0d1117; stroke: #30363d; }
+      .title { fill: #e6edf3; }
+      .small { fill: #e6edf3; }
+      .text { fill: #9198a1; }
+      .faded { fill: #6e7681; }
+      .code { fill: #4493f8; }
+      .muted { fill: #6e7681; }
+      .label { fill: #9198a1; }
+      .arrow { stroke: #6e7681; }
+      .head { fill: #6e7681; }
+    }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="head" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+  </defs>
+  <rect class="bg" width="880" height="300" rx="12"/>
+
+  <!-- the feature -->
+  <rect class="box" x="20" y="90" width="190" height="120" rx="10" stroke-width="1.2"/>
+  <text class="small" x="36" y="116">A feature of the map</text>
+  <text class="code" x="36" y="140">id: house-12</text>
+  <text class="code" x="36" y="160">kind: building</text>
+  <text class="code" x="36" y="180">use: shop</text>
+  <text class="code" x="36" y="200">floors: 3</text>
+  <path class="arrow" d="M210,150 H246" marker-end="url(#arrow)"/>
+
+  <!-- the rules, in order -->
+  <text class="label" x="250" y="28">rules, read in order</text>
+  <rect class="accent" x="250" y="38" width="380" height="64" rx="8" stroke-width="1.2"/>
+  <text class="code" x="266" y="62">when: {kind: building}</text>
+  <text class="text" x="266" y="84">plastered walls, a gable roof, tiles #a4553a</text>
+
+  <rect class="skip" x="250" y="118" width="380" height="64" rx="8" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text class="muted" x="266" y="142">when: {kind: street}</text>
+  <text class="faded" x="266" y="164">does not match: skipped</text>
+
+  <rect class="accent" x="250" y="198" width="380" height="84" rx="8" stroke-width="1.2"/>
+  <text class="code" x="266" y="222">when: {kind: building, use: [shop, workshop],</text>
+  <text class="code" x="310" y="240">floors: {min: 2}}</text>
+  <text class="text" x="266" y="264">replaces only the roof colour: #8e4631</text>
+  <path class="arrow" d="M630,150 H656" marker-end="url(#arrow)"/>
+
+  <!-- the result -->
+  <rect class="box" x="660" y="70" width="204" height="160" rx="10" stroke-width="1.2"/>
+  <text class="small" x="676" y="96">Its style</text>
+  <text class="text" x="676" y="120">shape: a volume, 9.5 m</text>
+  <text class="text" x="676" y="140">walls: plastered</text>
+  <text class="text" x="676" y="160">roof: gable, 35°</text>
+  <text class="text" x="676" y="180">roof colour: #8e4631</text>
+  <text class="label" x="676" y="210">the last match wins</text>
+</svg>

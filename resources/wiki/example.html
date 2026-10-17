@@ -1,0 +1,104 @@
+<h1 id="the-example-island">🏝️ The example island</h1>
+
+<p>A small made-up island to try the builder with: about 1.6 by 1.2 kilometres of sea and land, a hill
+of about 150 metres in the north-east with a forest on it, a river running down to the west coast,
+a beach along the south-west bay and a village of about a hundred houses on two crossing streets around a
+square. Everything in it is invented, and its numbers are round.</p>
+
+<p align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/map-dark.png">
+  <img alt="The example island's map drawn flat: a legend of kinds and geometries, a coast, a beach, houses along two streets, a square, gardens, roads, a river with a bridge and a forest" src="images/map-light.png" width="720">
+</picture>
+</p>
+
+<h2 id="the-files">The files</h2>
+
+<p>All in <a href="../examples/island"><code>examples/island/</code></a>:</p>
+
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>What it is</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><a href="../examples/island/map.geojson"><code>map.geojson</code></a></td>
+<td>The map, in metres east and north of the island&rsquo;s centre, one feature per line. Kinds: <code>building</code> (with <code>floors</code> and <code>use</code>), <code>street</code>, <code>road</code> and <code>path</code> (lines with a <code>width</code> in metres), <code>square</code>, <code>garden</code>, <code>forest</code> and <code>beach</code> (polygons), <code>river</code> and <code>bridge</code> (lines with a <code>width</code>), <code>tower</code> and <code>lamp</code> (points).</td>
+</tr>
+
+<tr>
+<td><a href="../examples/island/relief.json"><code>relief.json</code></a>, <code>relief.f32</code></td>
+<td>The relief: 160 × 120 cells of 10 metres. Under 0 metres is the sea floor.</td>
+</tr>
+
+<tr>
+<td><a href="../examples/island/style.yaml"><code>style.yaml</code></a></td>
+<td>The full style: plastered houses with tiled gable roofs, facades, gardens with plants, a forest of models, a river and a bridge, a sea at 0 metres.</td>
+</tr>
+
+<tr>
+<td><a href="../examples/island/style-stone.yaml"><code>style-stone.yaml</code></a></td>
+<td>The same, with stone houses and slate hip roofs (<a href="./style">style rules</a>).</td>
+</tr>
+
+<tr>
+<td><a href="../examples/island/style-plain.yaml"><code>style-plain.yaml</code></a></td>
+<td>Shapes only, without decoration (<a href="./decoration">decoration</a>).</td>
+</tr>
+
+<tr>
+<td><a href="../examples/island/models.yaml"><code>models.yaml</code></a></td>
+<td>The model library: a fir, a broadleaf tree and a lamp.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="build-it">Build it</h2>
+
+<p>From the repository&rsquo;s root (GEOS must be installed):</p>
+<pre><code class="language-bash">go run ./cmd/build-scene -map examples/island/map.geojson -relief examples/island/relief.json <span class="se">\
+</span>  -style examples/island/style.yaml -out island.glb
+</code></pre>
+
+<p>It prints how long each stage took, about 33 pieces and 130,000 triangles, and no warnings.
+Swap <code>style.yaml</code> for <code>style-stone.yaml</code> or <code>style-plain.yaml</code> to build the other looks from the
+same map.</p>
+
+<h2 id="look-at-it">Look at it</h2>
+
+<p>Open the scene with go-renderer&rsquo;s viewer, from go-renderer&rsquo;s folder:</p>
+<pre><code class="language-bash">go run ./cmd/visor path/to/island.glb
+</code></pre>
+
+<table>
+<tr>
+<th width="50%">Orbiting above it</th>
+<th width="50%">Walking down the main street</th>
+</tr>
+<tr>
+<td><img alt="The built island seen from above the sea" src="images/island.png"></td>
+<td><img alt="The village's main street at eye level, with plastered houses on both sides" src="images/decoration-after.png"></td>
+</tr>
+</table>
+
+<h2 id="how-the-pictures-were-made">How the pictures were made</h2>
+
+<p>Every picture of a scene in these docs is one frame of go-renderer&rsquo;s viewer, captured with
+<code>-capture</code> in a 1440 × 900 window (<code>-width 1440 -height 900</code>) and then reduced. Scene coordinates are kilometres, x east and z south, so
+the village&rsquo;s main street is near <code>x = -0.40, z = 0.218</code> (<code>visor</code> is <code>go run ./cmd/visor</code> in go-renderer):</p>
+<pre><code class="language-bash">visor -capture island.png island.glb                                        <span class="c1"># the whole island</span>
+visor -capture village.png -look-at<span class="o">=</span>-0.17,0.16 -zoom 0.14 island.glb        <span class="c1"># the village from above</span>
+visor -capture square.png -look-at<span class="o">=</span>-0.20,0.205 -zoom 0.07 island.glb        <span class="c1"># the square, close</span>
+visor -capture forest.png -look-at<span class="o">=</span>0.2,-0.15 -zoom 0.12 island.glb          <span class="c1"># the forest on the hill</span>
+visor -capture street.png -walk -eye-height 0.0017 -look-at<span class="o">=</span>-0.40,0.218 <span class="se">\
+</span>      -heading <span class="m">85</span> -pitch <span class="m">0</span> island.glb                                       <span class="c1"># down the main street</span>
+visor -capture street-night.png -night -walk -eye-height 0.0017 <span class="se">\
+</span>      -look-at<span class="o">=</span>-0.40,0.218 -heading <span class="m">85</span> -pitch <span class="m">0</span> island.glb                  <span class="c1"># the same, at night</span>
+</code></pre>
+
+<p>The flat map and the shaded relief were drawn from the same files with a short script; they are
+drawings, not output of the builder.</p>

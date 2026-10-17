@@ -1,0 +1,130 @@
+<h1 id="the-pipeline">🗺️ The pipeline</h1>
+
+<p>A map says <em>where</em> things are: this polygon is a house, this line is a street. It does not say
+what a house looks like. go-scene-builder adds that, following <strong>style rules</strong> written by you, so
+the same map can become a stone town or a timber village just by changing the rules. It knows
+nothing about any particular world: the map and the rules do.</p>
+
+<p align="center">
+  <img alt="map.geojson, relief.json and style.yaml, with optional layers, go into build-scene: 1 basic blocks, 2 relations, 3 style rules, 4 decoration; out comes scene.glb, which go-renderer's viewer opens" src="images/how-it-works.svg" width="880">
+</p>
+
+<ol>
+<li><strong>Basic blocks.</strong> The relief becomes terrain; ground features (streets, gardens, squares) are
+draped over it; water lies level; houses become volumes; walls and bridges become lines that
+follow the ground; points become small blocks or models.</li>
+<li><strong>Relations.</strong> What a block cannot know alone: which side of a house looks onto a street, which
+walls neighbours share (so they are not drawn twice), where a road crosses a wall and opens a
+gate.</li>
+<li><strong>Style rules.</strong> A cascade, like a style sheet: general rules first, specific ones after, the
+last that matches wins.</li>
+<li><strong>Decoration.</strong> Recipes add roofs, facades with doors and windows, towers at gates, plants in
+gardens and models such as lamps and benches.</li>
+</ol>
+
+<table>
+<tr>
+<th width="50%">Stages 1 to 3 only: basic blocks</th>
+<th width="50%">With stage 4: decoration</th>
+</tr>
+<tr>
+<td><img alt="The example village's square and streets as plain boxes on draped ground, with no roofs, windows or trees" src="images/blocks.png"></td>
+<td><img alt="The same square and streets with gable roofs, chimneys, windows, shutters, lamps and a bell tower" src="images/style-plaster.png"></td>
+</tr>
+<tr>
+<td>Houses are volumes of the right height, streets and the square are draped on the relief.</td>
+<td>Roofs, facades on the side that faces a street, a tower and lamps on the square.</td>
+</tr>
+</table>
+
+<h2 id="run-it">Run it</h2>
+
+<p>GEOS must be installed (<code>pkg-config geos</code>).</p>
+<pre><code class="language-bash">go run ./cmd/build-scene -map map.geojson -relief relieve.json -style style.yaml -out scene.glb
+go run ./cmd/build-scene -map map.geojson -relief relieve.json -layer <span class="nv">biome</span><span class="o">=</span>biomes.json -style style.yaml -out scene.glb
+</code></pre>
+
+<p>It prints how long each stage took and the first warnings (features no rule styles, wrong values).
+<code>-profile cpu.out</code> writes a CPU profile for <code>go tool pprof</code>. Then open the scene:
+<code>go run ./cmd/visor scene.glb</code> in go-renderer.</p>
+
+<p>The <a href="./example">example island</a> is a complete set of inputs to try it with.</p>
+
+<h2 id="what-goes-in">What goes in</h2>
+
+<table>
+<tr>
+<th width="50%">The map</th>
+<th width="50%">The relief</th>
+</tr>
+<tr>
+<td>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/map-dark.png">
+  <img alt="The example island's map drawn flat: a legend of kinds and geometries, a coast, a beach, houses along two streets, a square, gardens, roads, a river with a bridge and a forest" src="images/map-light.png">
+</picture>
+</td>
+<td>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/relief-dark.png">
+  <img alt="The example island's relief, shaded, with a line every 20 metres up to a hill of about 150 metres" src="images/relief-light.png">
+</picture>
+</td>
+</tr>
+<tr>
+<td>Every feature has a <code>kind</code>; the rules give it a meaning.</td>
+<td>160 × 120 cells of 10 metres; under 0 metres is the sea floor.</td>
+</tr>
+</table>
+
+<p><strong>The map</strong> is a GeoJSON <code>FeatureCollection</code>. Every feature has <code>properties.id</code> (stable between
+versions) and <code>properties.kind</code> (a free word: the rules give it a meaning); any other property can
+be read by the rules (<code>floors</code>, <code>use</code>, <code>width</code>…). The collection&rsquo;s properties say how to read the
+coordinates: <code>units</code> (<code>km</code> or <code>m</code>), <code>axes</code> (<code>east-north</code> or <code>east-south</code>) and <code>origin</code> (the point
+the scene is centred on).</p>
+<pre><code class="language-json"><span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;FeatureCollection&#34;</span><span class="p">,</span>
+ <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;units&#34;</span><span class="p">:</span> <span class="s2">&#34;m&#34;</span><span class="p">,</span> <span class="nt">&#34;axes&#34;</span><span class="p">:</span> <span class="s2">&#34;east-north&#34;</span><span class="p">,</span> <span class="nt">&#34;origin&#34;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]},</span>
+ <span class="nt">&#34;features&#34;</span><span class="p">:</span> <span class="p">[</span>
+  <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;Feature&#34;</span><span class="p">,</span> <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="s2">&#34;main-street&#34;</span><span class="p">,</span> <span class="nt">&#34;kind&#34;</span><span class="p">:</span> <span class="s2">&#34;street&#34;</span><span class="p">,</span> <span class="nt">&#34;width&#34;</span><span class="p">:</span> <span class="mi">8</span><span class="p">},</span>
+   <span class="nt">&#34;geometry&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;LineString&#34;</span><span class="p">,</span> <span class="nt">&#34;coordinates&#34;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">-430</span><span class="p">,</span> <span class="mi">-220</span><span class="p">],</span> <span class="p">[</span><span class="mi">-260</span><span class="p">,</span> <span class="mi">-210</span><span class="p">],</span> <span class="p">[</span><span class="mi">-200</span><span class="p">,</span> <span class="mi">-210</span><span class="p">]]}}</span>
+ <span class="p">]}</span>
+</code></pre>
+
+<p><strong>The relief</strong> is <code>relieve.json</code>, <code>{&quot;columns&quot;, &quot;rows&quot;, &quot;cell&quot;, &quot;west&quot;, &quot;north&quot;, &quot;units&quot;}</code> with the
+edges of the grid, and next to it <code>relieve.f32</code>: heights in metres as little-endian float32, row by
+row from the north, each at the centre of its cell. Without a relief the ground is flat. The header
+can have any name: the values are read from the same path with <code>.f32</code> instead of <code>.json</code> (the
+example island&rsquo;s are <code>relief.json</code> and <code>relief.f32</code>).</p>
+
+<p><strong>Layers</strong> are grids of categories in the same format with <code>labels</code> (the name of every value), such
+as the biomes a climate simulator writes: <code>-layer biome=biomes.json</code>. They colour the terrain and
+sow vegetation (<a href="./decoration">decoration</a>).</p>
+
+<h2 id="what-comes-out">What comes out</h2>
+
+<p align="center">
+  <img alt="The example island built and seen from above the sea: the terrain, the beach, the village, the river and the forest on the hill" src="images/island.png" width="720">
+</p>
+
+<p>A binary glTF 2.0 file, quantised to take less room. Scene coordinates are in kilometres, x east,
+y up, z south, centred on the origin. Pieces are grouped by material in squares of <code>chunk</code> km
+(0.5 by default) so the viewer only draws those in sight; terrain pieces are marked walkable
+(<code>ground</code>). The scene&rsquo;s extras carry the sun, fog, an optional sea and the vertical scale, which
+<a href="https://github.com/akrck02/go-renderer/blob/feature/escenas-3d/docs/gltf-extras.md" target="_blank">go-renderer reads</a>.</p>
+
+<h2 id="as-a-library">As a library</h2>
+
+<p>go-simulator uses the builder to draw growing towns live with the same style rules. <code>build.Build</code>
+takes the same inputs as the command plus <code>Heights</code> (any source of ground heights, for a scene
+whose terrain exists already), <code>Detail</code> (the longest side of draped triangles without a relief) and
+<code>Context</code> (features that take part in the relations without being built, such as the streets
+around a house being rebuilt).</p>
+
+<h2 id="status">Status</h2>
+
+<p>Done: reading maps, reliefs and rules; the basic blocks; the relations between blocks; recipes for
+walls, roofs (flat, gable, hip), gate towers, facades (door, windows, shutters, flower boxes, an
+emblem, lamps) and plants; materials with procedural patterns and glowing materials; colour
+palettes; models drawn as instances; biomes; levels of detail; rivers and bridges; the <code>.glb</code>
+writer; <code>build-scene</code>; and use as a library from go-simulator. Next: balconies and more
+decorations.</p>
