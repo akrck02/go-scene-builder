@@ -45,7 +45,7 @@ rules:
 
 ## The same map, two looks
 
-The [example island](example.md) has two style files for one map. Only the rules for houses and
+The [example island](3-the-example-island.md) has two style files for one map. Only the rules for houses and
 towers differ: `style.yaml` plasters the walls and tiles the roofs, `style-stone.yaml` builds them
 in masonry with slate hip roofs, stone frames, corner stones and ivy.
 
@@ -91,7 +91,7 @@ Values can be:
 | `volume` | a block: walls from `sink` metres under the lowest ground under its corners up to `height`, where the roof starts |
 | `line` | prisms of `thickness` and `height` in pieces of `segment` metres following the ground; with `follow: level`, one level prism whose top is `height` over its highest end, like a bridge deck |
 | `point` | a square or round block of `size` metres, decorated like volumes |
-| `model` | a model from a library, placed on a point (see [decoration](decoration.md#models)) |
+| `model` | a model from a library, placed on a point (see [decoration](6-decoration.md#models)) |
 | `none` | nothing |
 
 ## Materials
@@ -130,4 +130,4 @@ they meet the neighbours' exactly, under a roof sloping from every side.
 
 `terrain` sets the ground's `color`, its material, and `bands`: colours above a height
 (`{above, color, blend}`), for rock or snow. With a layer of biomes, `terrain.biomes` colours each
-biome and sows its plants ([decoration](decoration.md#biomes)).
+biome and sows its plants ([decoration](6-decoration.md#biomes)).

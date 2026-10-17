@@ -121,7 +121,7 @@ roof: {recipe: flat}</code></pre>
 
 ![Achievement unlocked: Surveyor](images/quest/achievement-surveyor.svg)
 
-Learn more: [The pipeline](pipeline.md) · [Style rules](style.md)
+Learn more: [The pipeline](4-the-pipeline.md) · [Style rules](5-style-rules.md)
 
 ---
 
@@ -277,7 +277,7 @@ Ivy is a foliage material: it takes the season's colour when a simulation sets o
 
 ![Achievement unlocked: Street builder](images/quest/achievement-street-builder.svg)
 
-Learn more: [Decoration: facades](decoration.md#facades)
+Learn more: [Decoration: facades](6-decoration.md#facades)
 
 ---
 
@@ -387,7 +387,7 @@ Add a band: `{above: 30, color: "#f2f2f0", blend: 2}` after the first.
 
 ![Achievement unlocked: Geographer](images/quest/achievement-geographer.svg)
 
-Learn more: [Houses on slopes](style.md#houses-on-slopes) · [The pipeline: what goes in](pipeline.md#what-goes-in)
+Learn more: [Houses on slopes](5-style-rules.md#houses-on-slopes) · [The pipeline: what goes in](4-the-pipeline.md#what-goes-in)
 
 ---
 
@@ -442,7 +442,7 @@ lane over it.
 
 ![Achievement unlocked: Waterman](images/quest/achievement-waterman.svg)
 
-Learn more: [Rivers and bridges](decoration.md#rivers-and-bridges)
+Learn more: [Rivers and bridges](6-decoration.md#rivers-and-bridges)
 
 ---
 
@@ -540,7 +540,7 @@ and in the garden's `decorate`: `{recipe: scatter, density: 0.5, models: {lily: 
 
 ![Achievement unlocked: Gardener](images/quest/achievement-gardener.svg)
 
-Learn more: [Models](decoration.md#models) · [Plants](decoration.md#plants)
+Learn more: [Models](6-decoration.md#models) · [Plants](6-decoration.md#plants)
 
 ---
 
@@ -589,7 +589,7 @@ comes from rules you wrote.
 |---|---|---|
 | A second street, and houses facing both | ⭐ | Another `street` line; the relations do the rest |
 | A round tower | ⭐ | A point with `shape: {role: point, size: 8, height: 15, form: round}` |
-| A forest by biome | ⭐⭐ | A layer of categories, `-layer biome=biomes.json`, and `terrain.biomes` ([biomes](decoration.md#biomes)) |
+| A forest by biome | ⭐⭐ | A layer of categories, `-layer biome=biomes.json`, and `terrain.biomes` ([biomes](6-decoration.md#biomes)) |
 | A model made in Blender | ⭐⭐ | `file: lamp.glb` in the library, in metres, y up |
 | A town that grows by itself | ⭐⭐⭐ | go-simulator's urban plugin builds on the same rules |
 
@@ -606,4 +606,4 @@ comes from rules you wrote.
 
 ---
 
-[← All the documentation](README.md)
+[← All the documentation](1-overview.md)
