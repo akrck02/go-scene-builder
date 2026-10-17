@@ -1,3 +1,5 @@
+<p align="center"><img alt="" src="images/logo.svg" width="120"></p>
+
 # Welcome to go-scene-builder 👋
 
 **go-scene-builder turns a flat map into a 3D scene you can walk through**: you say *what is where* (a house here, a street there) and *what things look like* (stone walls, red roofs), and it builds the village.
