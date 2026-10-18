@@ -15,6 +15,7 @@ jobs:
           title: "go-scene-builder"
           description: "3D scenes from 2D maps, reliefs and style rules"
           logo: "./docs/images/logo.svg"
+          accent: "#B0613F"
           path: "./docs"
           isObsidianProject: false
           showFooter: true
