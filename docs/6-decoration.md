@@ -110,7 +110,7 @@ wall keeps its gate a gate.
 
 ## Levels of detail and file size
 
-Pieces carry simpler versions for when they look small on screen, and go-renderer picks one: the
+Pieces carry simpler versions for when they look small on screen, and Go Renderer picks one: the
 terrain is written at full resolution and at every 2nd, 4th and 8th vertex, with skirts under the
 chunk edges; facade details and plants hide from far away; models can declare simpler versions
 (`levels: [{below: 0.06, parts: […]}, {below: 0.006}]`, no parts = not drawn).

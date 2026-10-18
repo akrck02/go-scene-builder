@@ -1,7 +1,7 @@
-# The go-scene-builder quest
+# The Go Scene Builder quest
 
 Turn a flat map into a village you can walk through, one level at a time. Each level teaches one
-piece of go-scene-builder and ends with a new scene in go-renderer's viewer.
+piece of Go Scene Builder and ends with a new scene in Go Renderer's viewer.
 
 ![The quest map: a road from START through 6 levels — Surveyor, Mason, Street builder, Geographer, Waterman and Gardener — to a final challenge, Town founder](images/quest/quest-map.svg)
 
@@ -18,7 +18,7 @@ growing them: `map.geojson` (what is where) and `style.yaml` (what things look l
 
 ## Before you start
 
-You need Go 1.25, GEOS (`sudo apt install libgeos-dev`, `brew install geos`) and go-renderer's
+You need Go 1.25, GEOS (`sudo apt install libgeos-dev`, `brew install geos`) and Go Renderer's
 viewer to look at the result:
 
 ```sh
@@ -249,7 +249,7 @@ rules:
 
 - `relations.facing`: sides within 20 metres of a street face it.
 - `lift: 0.3` keeps the street a little over the meadow, so the two do not flicker.
-- `material: {pattern: cobbles}` draws paving stones on the square with no texture: go-renderer
+- `material: {pattern: cobbles}` draws paving stones on the square with no texture: Go Renderer
   makes the pattern as it draws.
 - `ridge: along_street`: the roof's ridge runs along the street.
 - `facade.sides` gives the other walls plainer windows, further apart.
@@ -456,7 +456,7 @@ Learn more: [Rivers and bridges](6-decoration.md#rivers-and-bridges)
 
 A **model library** is a **box of toys**: a lamp, a fountain, a bench, each built once from simple
 parts (boxes, cylinders, cones, blobs). The map places them, or a recipe **sows** them over a
-ground, and go-renderer draws every copy of a toy in one go, so a hundred cost no more than one.
+ground, and Go Renderer draws every copy of a toy in one go, so a hundred cost no more than one.
 
 #### Build it
 
@@ -591,7 +591,7 @@ comes from rules you wrote.
 | A round tower | ⭐ | A point with `shape: {role: point, size: 8, height: 15, form: round}` |
 | A forest by biome | ⭐⭐ | A layer of categories, `-layer biome=biomes.json`, and `terrain.biomes` ([biomes](6-decoration.md#biomes)) |
 | A model made in Blender | ⭐⭐ | `file: lamp.glb` in the library, in metres, y up |
-| A town that grows by itself | ⭐⭐⭐ | go-simulator's urban plugin builds on the same rules |
+| A town that grows by itself | ⭐⭐⭐ | Go Simulator's urban plugin builds on the same rules |
 
 ## Troubleshooting
 

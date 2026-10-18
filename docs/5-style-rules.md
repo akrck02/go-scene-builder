@@ -71,7 +71,7 @@ stonework: {plinth: 0.6}                             stonework: {plinth: 0.8, qu
 
 ## Selectors and values
 
-A selector (`when`) uses go-simulator's condition language: the `kind`, a property equal to a value
+A selector (`when`) uses Go Simulator's condition language: the `kind`, a property equal to a value
 or to one of a list, or a number within `{min, max}`.
 
 Values can be:
@@ -99,7 +99,7 @@ Values can be:
 Every part can set its material:
 
 - `material: {pattern: cobbles, scale: 0.35}`: a procedural pattern (`cobbles`, `masonry`,
-  `plaster`, `shingles`, `planks` or `grass`, metres per cell) that go-renderer draws on the fly:
+  `plaster`, `shingles`, `planks` or `grass`, metres per cell) that Go Renderer draws on the fly:
   detail without textures or extra triangles;
 - `material: {kind: glow}`: shines in the dark, like lanterns;
 - `material: {foliage: true}`: takes the season's colour;

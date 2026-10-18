@@ -1,12 +1,12 @@
 <p align="center"><img alt="" src="images/logo.svg" width="120"></p>
 
-# Welcome to go-scene-builder 👋
+# Welcome to Go Scene Builder 👋
 
-**go-scene-builder turns a flat map into a 3D scene you can walk through**: you say *what is where* (a house here, a street there) and *what things look like* (stone walls, red roofs), and it builds the village.
+**Go Scene Builder turns a flat map into a 3D scene you can walk through**: you say *what is where* (a house here, a street there) and *what things look like* (stone walls, red roofs), and it builds the village.
 
 <p align="center"><img alt="A village built from a map: houses with roofs and facades along streets, a river and trees" src="images/hero-light.png" width="720"></p>
 
-It reads three things: a **map** (the outlines of houses, streets, rivers), a **relief** (how high the ground is) and **style rules** (a text file saying what each kind of thing looks like). It writes a `.glb` scene that go-renderer's viewer opens. Change the rules and the same map becomes another village.
+It reads three things: a **map** (the outlines of houses, streets, rivers), a **relief** (how high the ground is) and **style rules** (a text file saying what each kind of thing looks like). It writes a `.glb` scene that Go Renderer's viewer opens. Change the rules and the same map becomes another village.
 
 ## Is it for me?
 
@@ -69,21 +69,21 @@ The menu on the left (or the files in `docs/`) follows this order.
 
 ## The family
 
-go-scene-builder is one of a family of small projects that work together:
+Go Scene Builder is one of a family of small projects that work together:
 
 | Project | What it does |
 |---|---|
-| [go-renderer](https://github.com/akrck02/go-renderer) | draws 3D scenes and flat interfaces |
-| [go-ui](https://github.com/akrck02/go-ui) | buttons, panels and whole applications |
-| [go-ui-android](https://github.com/akrck02/go-ui-android) | Android apps that look like Android's own |
-| [go-sound](https://github.com/akrck02/go-sound) | sound and music |
-| **go-scene-builder** (this one) | 3D scenes from a flat map |
-| [go-simulator](https://github.com/akrck02/go-simulator) | simulations that change a scene |
-| [go-simulator-terrain](https://github.com/akrck02/go-simulator-terrain) | ground shaped by rivers |
-| [go-simulator-climate](https://github.com/akrck02/go-simulator-climate) | weather and biomes |
-| [go-simulator-flora](https://github.com/akrck02/go-simulator-flora) | forests that grow |
-| [go-simulator-urban](https://github.com/akrck02/go-simulator-urban) | towns that grow |
-| [go-simulator-motion](https://github.com/akrck02/go-simulator-motion) | a scene that moves |
-| [go-3ds](https://github.com/akrck02/go-3ds) | Go on the Nintendo 3DS |
+| [Go Renderer](https://github.com/akrck02/go-renderer) | draws 3D scenes and flat interfaces |
+| [Go UI](https://github.com/akrck02/go-ui) | buttons, panels and whole applications |
+| [Go UI for Android](https://github.com/akrck02/go-ui-android) | Android apps that look like Android's own |
+| [Go Sound](https://github.com/akrck02/go-sound) | sound and music |
+| **Go Scene Builder** (this one) | 3D scenes from a flat map |
+| [Go Simulator](https://github.com/akrck02/go-simulator) | simulations that change a scene |
+| [Go Terrain Simulator](https://github.com/akrck02/go-simulator-terrain) | ground shaped by rivers |
+| [Go Climate Simulator](https://github.com/akrck02/go-simulator-climate) | weather and biomes |
+| [Go Flora Simulator](https://github.com/akrck02/go-simulator-flora) | forests that grow |
+| [Go Urban Simulator](https://github.com/akrck02/go-simulator-urban) | towns that grow |
+| [Go Motion Simulator](https://github.com/akrck02/go-simulator-motion) | a scene that moves |
+| [Go for 3DS](https://github.com/akrck02/go-3ds) | Go on the Nintendo 3DS |
 
 > ⚠️ All of them are **educational experiments**, written with an AI assistant and pending review by their author: good for learning and playing, not for production.

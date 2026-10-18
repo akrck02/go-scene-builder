@@ -6,7 +6,7 @@
 
 **From a flat map to a 3D scene you can walk through.** Give it any **2D map** (GeoJSON whose
 features carry an `id` and a `kind`), a **relief** (a grid of heights) and **style rules** written
-by you, and it writes a **3D scene** (`.glb`) that [go-renderer](https://github.com/akrck02/go-renderer)'s
+by you, and it writes a **3D scene** (`.glb`) that [Go Renderer](https://github.com/akrck02/go-renderer)'s
 viewer opens. It knows nothing about any particular world: the map and the rules do.
 
 [![Go](https://img.shields.io/github/go-mod/go-version/akrck02/go-scene-builder)](go.mod)
@@ -35,7 +35,7 @@ reviewed it line by line. Treat it as a working draft, not as code I vouch for.
 </picture>
 </p>
 
-<p align="center"><sub>The example island's main street in go-renderer's viewer, built from a map, a relief and a style file: by day in light mode, at night in dark mode.</sub></p>
+<p align="center"><sub>The example island's main street in Go Renderer's viewer, built from a map, a relief and a style file: by day in light mode, at night in dark mode.</sub></p>
 
 ## ✨ What it looks like
 
@@ -95,7 +95,7 @@ go run ./cmd/build-scene -map map.geojson -relief relieve.json -style style.yaml
 ## 🔍 How it works
 
 <p align="center">
-  <img alt="map.geojson, relief.json and style.yaml, with optional layers, go into build-scene: 1 basic blocks, 2 relations, 3 style rules, 4 decoration; out comes scene.glb, which go-renderer's viewer opens" src="docs/images/how-it-works.svg" width="880">
+  <img alt="map.geojson, relief.json and style.yaml, with optional layers, go into build-scene: 1 basic blocks, 2 relations, 3 style rules, 4 decoration; out comes scene.glb, which Go Renderer's viewer opens" src="docs/images/how-it-works.svg" width="880">
 </p>
 
 ```
