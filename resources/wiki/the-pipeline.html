@@ -6,7 +6,7 @@ the same map can become a stone town or a timber village just by changing the ru
 nothing about any particular world: the map and the rules do.</p>
 
 <p align="center">
-  <img alt="map.geojson, relief.json and style.yaml, with optional layers, go into build-scene: 1 basic blocks, 2 relations, 3 style rules, 4 decoration; out comes scene.glb, which go-renderer's viewer opens" src="images/how-it-works.svg" width="880">
+  <img alt="map.geojson, relief.json and style.yaml, with optional layers, go into build-scene: 1 basic blocks, 2 relations, 3 style rules, 4 decoration; out comes scene.glb, which go-renderer's viewer opens" src="./images/how-it-works.svg" width="880">
 </p>
 
 <ol>
@@ -28,8 +28,8 @@ gardens and models such as lamps and benches.</li>
 <th width="50%">With stage 4: decoration</th>
 </tr>
 <tr>
-<td><img alt="The example village's square and streets as plain boxes on draped ground, with no roofs, windows or trees" src="images/blocks.png"></td>
-<td><img alt="The same square and streets with gable roofs, chimneys, windows, shutters, lamps and a bell tower" src="images/style-plaster.png"></td>
+<td><img alt="The example village's square and streets as plain boxes on draped ground, with no roofs, windows or trees" src="./images/blocks.png"></td>
+<td><img alt="The same square and streets with gable roofs, chimneys, windows, shutters, lamps and a bell tower" src="./images/style-plaster.png"></td>
 </tr>
 <tr>
 <td>Houses are volumes of the right height, streets and the square are draped on the relief.</td>
@@ -60,14 +60,14 @@ go run ./cmd/build-scene -map map.geojson -relief relieve.json -layer <span clas
 <tr>
 <td>
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="images/map-dark.png">
-  <img alt="The example island's map drawn flat: a legend of kinds and geometries, a coast, a beach, houses along two streets, a square, gardens, roads, a river with a bridge and a forest" src="images/map-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="./images/map-dark.png">
+  <img alt="The example island's map drawn flat: a legend of kinds and geometries, a coast, a beach, houses along two streets, a square, gardens, roads, a river with a bridge and a forest" src="./images/map-light.png">
 </picture>
 </td>
 <td>
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="images/relief-dark.png">
-  <img alt="The example island's relief, shaded, with a line every 20 metres up to a hill of about 150 metres" src="images/relief-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="./images/relief-dark.png">
+  <img alt="The example island's relief, shaded, with a line every 20 metres up to a hill of about 150 metres" src="./images/relief-light.png">
 </picture>
 </td>
 </tr>
@@ -103,7 +103,7 @@ sow vegetation (<a href="./decoration">decoration</a>).</p>
 <h2 id="what-comes-out">What comes out</h2>
 
 <p align="center">
-  <img alt="The example island built and seen from above the sea: the terrain, the beach, the village, the river and the forest on the hill" src="images/island.png" width="720">
+  <img alt="The example island built and seen from above the sea: the terrain, the beach, the village, the river and the forest on the hill" src="./images/island.png" width="720">
 </p>
 
 <p>A binary glTF 2.0 file, quantised to take less room. Scene coordinates are in kilometres, x east,
