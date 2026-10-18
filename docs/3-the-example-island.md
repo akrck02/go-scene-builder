@@ -40,7 +40,7 @@ same map.
 
 ## Look at it
 
-Open the scene with go-renderer's viewer, from go-renderer's folder:
+Open the scene with Go Renderer's viewer, from the `go-renderer` folder:
 
 ```bash
 go run ./cmd/visor path/to/island.glb
@@ -59,9 +59,9 @@ go run ./cmd/visor path/to/island.glb
 
 ## How the pictures were made
 
-Every picture of a scene in these docs is one frame of go-renderer's viewer, captured with
+Every picture of a scene in these docs is one frame of Go Renderer's viewer, captured with
 `-capture` in a 1440 × 900 window (`-width 1440 -height 900`) and then reduced. Scene coordinates are kilometres, x east and z south, so
-the village's main street is near `x = -0.40, z = 0.218` (`visor` is `go run ./cmd/visor` in go-renderer):
+the village's main street is near `x = -0.40, z = 0.218` (`visor` is `go run ./cmd/visor` in Go Renderer):
 
 ```bash
 visor -capture island.png island.glb                                        # the whole island
