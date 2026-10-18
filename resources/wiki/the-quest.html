@@ -1,7 +1,7 @@
-<h1 id="the-go-scene-builder-quest">The go-scene-builder quest</h1>
+<h1 id="the-go-scene-builder-quest">The Go Scene Builder quest</h1>
 
 <p>Turn a flat map into a village you can walk through, one level at a time. Each level teaches one
-piece of go-scene-builder and ends with a new scene in go-renderer&rsquo;s viewer.</p>
+piece of Go Scene Builder and ends with a new scene in Go Renderer&rsquo;s viewer.</p>
 
 <p><img src="./images/quest/quest-map.svg" alt="The quest map: a road from START through 6 levels — Surveyor, Mason, Street builder, Geographer, Waterman and Gardener — to a final challenge, Town founder" /></p>
 
@@ -18,7 +18,7 @@ growing them: <code>map.geojson</code> (what is where) and <code>style.yaml</cod
 
 <h2 id="before-you-start">Before you start</h2>
 
-<p>You need Go 1.25, GEOS (<code>sudo apt install libgeos-dev</code>, <code>brew install geos</code>) and go-renderer&rsquo;s
+<p>You need Go 1.25, GEOS (<code>sudo apt install libgeos-dev</code>, <code>brew install geos</code>) and Go Renderer&rsquo;s
 viewer to look at the result:</p>
 <pre><code class="language-sh">git clone https://github.com/akrck02/go-scene-builder
 git clone https://github.com/akrck02/go-renderer
@@ -274,7 +274,7 @@ door, windows with shutters and flower boxes.</p>
 <ul>
 <li><code>relations.facing</code>: sides within 20 metres of a street face it.</li>
 <li><code>lift: 0.3</code> keeps the street a little over the meadow, so the two do not flicker.</li>
-<li><code>material: {pattern: cobbles}</code> draws paving stones on the square with no texture: go-renderer
+<li><code>material: {pattern: cobbles}</code> draws paving stones on the square with no texture: Go Renderer
 makes the pattern as it draws.</li>
 <li><code>ridge: along_street</code>: the roof&rsquo;s ridge runs along the street.</li>
 <li><code>facade.sides</code> gives the other walls plainer windows, further apart.</li>
@@ -512,7 +512,7 @@ lane over it.</p>
 
 <p>A <strong>model library</strong> is a <strong>box of toys</strong>: a lamp, a fountain, a bench, each built once from simple
 parts (boxes, cylinders, cones, blobs). The map places them, or a recipe <strong>sows</strong> them over a
-ground, and go-renderer draws every copy of a toy in one go, so a hundred cost no more than one.</p>
+ground, and Go Renderer draws every copy of a toy in one go, so a hundred cost no more than one.</p>
 
 <h4 id="build-it-5">Build it</h4>
 
@@ -672,7 +672,7 @@ comes from rules you wrote.</p>
 <tr>
 <td>A town that grows by itself</td>
 <td>⭐⭐⭐</td>
-<td>go-simulator&rsquo;s urban plugin builds on the same rules</td>
+<td>Go Simulator&rsquo;s urban plugin builds on the same rules</td>
 </tr>
 </tbody>
 </table>

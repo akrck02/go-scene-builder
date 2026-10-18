@@ -1,12 +1,12 @@
 <h1 id="the-pipeline">🗺️ The pipeline</h1>
 
 <p>A map says <em>where</em> things are: this polygon is a house, this line is a street. It does not say
-what a house looks like. go-scene-builder adds that, following <strong>style rules</strong> written by you, so
+what a house looks like. Go Scene Builder adds that, following <strong>style rules</strong> written by you, so
 the same map can become a stone town or a timber village just by changing the rules. It knows
 nothing about any particular world: the map and the rules do.</p>
 
 <p align="center">
-  <img alt="map.geojson, relief.json and style.yaml, with optional layers, go into build-scene: 1 basic blocks, 2 relations, 3 style rules, 4 decoration; out comes scene.glb, which go-renderer's viewer opens" src="./images/how-it-works.svg" width="880">
+  <img alt="map.geojson, relief.json and style.yaml, with optional layers, go into build-scene: 1 basic blocks, 2 relations, 3 style rules, 4 decoration; out comes scene.glb, which Go Renderer's viewer opens" src="./images/how-it-works.svg" width="880">
 </p>
 
 <ol>
@@ -46,7 +46,7 @@ go run ./cmd/build-scene -map map.geojson -relief relieve.json -layer <span clas
 
 <p>It prints how long each stage took and the first warnings (features no rule styles, wrong values).
 <code>-profile cpu.out</code> writes a CPU profile for <code>go tool pprof</code>. Then open the scene:
-<code>go run ./cmd/visor scene.glb</code> in go-renderer.</p>
+<code>go run ./cmd/visor scene.glb</code> in Go Renderer.</p>
 
 <p>The <a href="./the-example-island">example island</a> is a complete set of inputs to try it with.</p>
 
@@ -110,11 +110,11 @@ sow vegetation (<a href="./decoration">decoration</a>).</p>
 y up, z south, centred on the origin. Pieces are grouped by material in squares of <code>chunk</code> km
 (0.5 by default) so the viewer only draws those in sight; terrain pieces are marked walkable
 (<code>ground</code>). The scene&rsquo;s extras carry the sun, fog, an optional sea and the vertical scale, which
-<a href="https://github.com/akrck02/go-renderer/blob/feature/escenas-3d/docs/gltf-extras.md" target="_blank">go-renderer reads</a>.</p>
+<a href="https://github.com/akrck02/go-renderer/blob/feature/escenas-3d/docs/gltf-extras.md" target="_blank">Go Renderer reads</a>.</p>
 
 <h2 id="as-a-library">As a library</h2>
 
-<p>go-simulator uses the builder to draw growing towns live with the same style rules. <code>build.Build</code>
+<p>Go Simulator uses the builder to draw growing towns live with the same style rules. <code>build.Build</code>
 takes the same inputs as the command plus <code>Heights</code> (any source of ground heights, for a scene
 whose terrain exists already), <code>Detail</code> (the longest side of draped triangles without a relief) and
 <code>Context</code> (features that take part in the relations without being built, such as the streets
@@ -126,5 +126,5 @@ around a house being rebuilt).</p>
 walls, roofs (flat, gable, hip), gate towers, facades (door, windows, shutters, flower boxes, an
 emblem, lamps) and plants; materials with procedural patterns and glowing materials; colour
 palettes; models drawn as instances; biomes; levels of detail; rivers and bridges; the <code>.glb</code>
-writer; <code>build-scene</code>; and use as a library from go-simulator. Next: balconies and more
+writer; <code>build-scene</code>; and use as a library from Go Simulator. Next: balconies and more
 decorations.</p>

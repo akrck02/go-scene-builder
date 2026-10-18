@@ -70,7 +70,7 @@ same map.</p>
 
 <h2 id="look-at-it">Look at it</h2>
 
-<p>Open the scene with go-renderer&rsquo;s viewer, from go-renderer&rsquo;s folder:</p>
+<p>Open the scene with Go Renderer&rsquo;s viewer, from the <code>go-renderer</code> folder:</p>
 <pre><code class="language-bash">go run ./cmd/visor path/to/island.glb
 </code></pre>
 
@@ -87,9 +87,9 @@ same map.</p>
 
 <h2 id="how-the-pictures-were-made">How the pictures were made</h2>
 
-<p>Every picture of a scene in these docs is one frame of go-renderer&rsquo;s viewer, captured with
+<p>Every picture of a scene in these docs is one frame of Go Renderer&rsquo;s viewer, captured with
 <code>-capture</code> in a 1440 × 900 window (<code>-width 1440 -height 900</code>) and then reduced. Scene coordinates are kilometres, x east and z south, so
-the village&rsquo;s main street is near <code>x = -0.40, z = 0.218</code> (<code>visor</code> is <code>go run ./cmd/visor</code> in go-renderer):</p>
+the village&rsquo;s main street is near <code>x = -0.40, z = 0.218</code> (<code>visor</code> is <code>go run ./cmd/visor</code> in Go Renderer):</p>
 <pre><code class="language-bash">visor -capture island.png island.glb                                        <span class="c1"># the whole island</span>
 visor -capture village.png -look-at<span class="o">=</span>-0.17,0.16 -zoom 0.14 island.glb        <span class="c1"># the village from above</span>
 visor -capture square.png -look-at<span class="o">=</span>-0.20,0.205 -zoom 0.07 island.glb        <span class="c1"># the square, close</span>
