@@ -1,6 +1,7 @@
 # Publishes docs/ as a website on GitHub Pages with papiro (https://github.com/akrck02/papiro-deploy).
 name: Publish documents
 on:
+  workflow_dispatch:
   push:
     branches: [master]
 permissions:
